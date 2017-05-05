@@ -1,0 +1,89 @@
+/** Tree **/
+.function-tree, .function-tree ul {
+  list-style-type: none;
+  padding-left: 1em;
+}
+
+.function-tree ul, .function-tree li {
+  position: relative;
+}
+.function-tree ul::before {
+  content: "";
+  position: absolute;
+  display: block;
+
+  top: 0;
+  left: 0.5em;
+  width: 1em;
+  height: 0.6em;
+
+  border-left: 1px solid grey;
+}
+.function-tree > li li::before {
+  content: "";
+  position: absolute;
+  display: block;
+
+  top: 0.6em;
+  left: -0.5em;
+  width: 0.4em;
+  bottom: -0.6em;
+
+  border-top: 1px solid grey;
+  border-left: 1px solid grey;
+}
+.function-tree li:last-child::before {
+  border-left: 0 none;
+}
+.function-tree li.leaf::before {
+  width: 1.2em;
+}
+
+.function-tree li {
+  padding-top: 0.1em;
+  padding-bottom: 0.1em;
+}
+
+.function-tree .expand, .function-tree .noexpand {
+  display: inline-block;
+  width: 1em;
+  text-align: center;
+}
+
+
+
+
+
+.function-tree .expand { cursor: pointer; }
+
+.function-tree .node em {
+  display: inline-block;
+  float: right;
+  color: #AAA;
+  font-family: monospace;
+}
+
+
+/** Pretty "icons" for different classes of tree nodes */
+.node::before {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  margin: 0 0.2em;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 0.6em;
+  color: #EEE;
+  background: #A36;
+  cursor: default;
+}
+
+.node.implicit {
+  font-style: italic;
+  color: #999;
+}
+
+/** Close tree nodes by default */
+.function-tree ul {
+  display: none;
+}

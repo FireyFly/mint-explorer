@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>K3D dis</title>
+    <link rel="stylesheet" type="text/css" href="css/expand-tree.css"></link>
+    <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: auto;
+      font: 1.0em sans-serif;
+      color: #EEE;
+      background: #222;
+    }
+    ::-moz-selection {
+      background-color: #000 !important;
+    }
+
+    #tree-cont {
+      position: fixed;
+      bottom: 0;
+      float: left;
+      width: 20em;
+      height: 100%;
+      overflow: auto;
+      background: #222;
+    }
+    #tree-cont li {
+      white-space: nowrap;
+    }
+    #tree-cont .node {
+      cursor: default;
+    }
+
+    .node.package::before { background: #A36; content: "P" }
+    .node.file::before    { background: #395; content: "F" }
+    .node.class::before   { background: #963; content: "C" }
+    .node.field::before   { background: #793; content: "f" }
+    .node.method::before  { background: #369; content: "m" }
+    .node.const::before   { background: #A43; content: "c" }
+
+
+    #view-cont {
+      padding: 1em;
+      margin-left: 20em;
+    }
+
+    #view-cont .breadcrumb {
+      list-style-type: none;
+      padding-left: 0;
+    }
+    #view-cont .breadcrumb > li {
+      display: inline-block;
+    }
+    #view-cont .breadcrumb > li:not(:first-child)::before {
+      display: inline-block;
+      padding-left: 0.4em;
+      padding-right: 0.3em;
+      content: "〉";
+      cursor: default;
+      color: #999;
+    }
+
+    #view-cont .metadata dt, dd {
+      display: inline-block;
+    }
+    #view-cont .metadata dt {
+    }
+    #view-cont .metadata dd {
+      margin-left: 0.2em;
+      margin-right: 1em;
+      color: #999;
+    }
+
+    .hexdump .address , .disasm .address { color: #999; }
+    .hexdump .zero    , .disasm .zero    { color: #424242; }
+    .hexdump .low     , .disasm .low     { color: #9c6; }
+    .hexdump .high    , .disasm .high    { color: #96f; }
+    .hexdump .all     , .disasm .all     { color: #c33; }
+
+    </style>
+  </head>
+  <body>
+    <div id="tree-cont"></div>
+    <div id="view-cont">hello</div>
+    <script src="js/binaryparser.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/xbin.js"></script>
+    <script src="js/expand-tree.js"></script>
+    <script>
+function xhr(url, type, callback) {
+  var req = new XMLHttpRequest()
+  if (type == 'blob') req.overrideMimeType('application/octet-stream')
+  req.onreadystatechange = function () {
+    if (req.readyState == 4) {
+      callback(null, req.response, req)
+    }
+  }
+  req.open('GET', url, true)
+  req.responseType = type // 'blob'
+  req.send()
+}
+
+var bench = (function () {
+  var start
+  function tick() {
+    start = Date.now()
+  }
+  function tock(msg) {
+    var delta = Date.now() - start
+    printf("%4d.%03d %s", Math.floor(delta / 1000), delta % 1000, msg || "Tock")
+    start = Date.now()
+  }
+  return {tick: tick, tock: tock}
+})()
+
+var xbin = null
+
+function hexdump(buf, offset) {
+  var u8 = new Uint8Array(buf)
+  var pre = document.createElement('pre')
+  pre.classList.add('hexdump')
+
+  function classOf(v) {
+    return v == 0x00? 'zero'
+         : v == 0xFF? 'all'
+         : v  < 0x20? 'low'
+         : v  < 0x7F? 'print'
+         :            'high'
+  }
+
+  for (var i = 0; i < u8.length; i += 0x10) {
+    // Address
+    var span = document.createElement('span')
+    span.classList.add('address')
+    span.appendChild(document.createTextNode(sprintf('%08x', offset + i)))
+    pre.appendChild(span)
+
+    // Hex part
+    for (var j = 0; j < 0x10; j++) {
+      if (j % 8 == 0) pre.appendChild(document.createTextNode(' '))
+
+      if (i + j < u8.length) {
+        var span = document.createElement('span')
+        span.classList.add(classOf(u8[i + j]))
+        span.appendChild(document.createTextNode(sprintf(' %02x', u8[i + j])))
+        pre.appendChild(span)
+      } else {
+        pre.appendChild(document.createTextNode('   '))
+      }
+    }
+    pre.appendChild(document.createTextNode(' '))
+
+    // Char part
+    for (var j = 0; j < 0x10; j++) {
+      if (j % 8 == 0) pre.appendChild(document.createTextNode(' '))
+
+      if (i + j < u8.length) {
+        var span = document.createElement('span')
+        span.classList.add(classOf(u8[i + j]))
+        var ch = 0x20 <= u8[i+j] && u8[i+j] < 0x7F?  String.fromCharCode(u8[i+j]) : '.'
+        span.appendChild(document.createTextNode(ch))
+        pre.appendChild(span)
+      } else {
+        pre.appendChild(document.createTextNode(' '))
+      }
+    }
+
+    pre.appendChild(document.createTextNode('\n'))
+  }
+
+  return pre
+}
+
+function prettyxref(xref) {
+  var target = xbin.by_hash[xref]
+  return target == null?          sprintf("#[%08x]", xref)
+       : target.type == 'class'?  target.name
+       : target.type == 'method'? target.parent.name + "." + target.name
+       : target.type == 'field'?  target.name
+       :                          sprintf("(?%s?)", target.type)
+}
+
+function disassemble(method, xbin) {
+  var u8 = new Uint8Array(method.bytecode)
+  var pre = document.createElement('pre')
+  pre.classList.add('disasm')
+
+  var file  = method.parent.parent,
+      xrefs = file.xrefs
+  var sdata = file.static_data,
+      sd_u8  = new Uint8Array(sdata),
+      sd_sz  = sdata.byteLength - sdata.byteLength%4,
+      sd_i32 = new Int32Array(sdata.slice(0, sd_sz)),
+      sd_f32 = new Float32Array(sdata.slice(0, sd_sz))
+
+  function readstring(v) {
+    var res = ""
+    for (var i = v; sd_u8[i] != 0 && i < sd_u8.length; i++) {
+      if (sd_u8[i] >> 7) {
+        console.log(sd_u8.slice(i,i+8))
+        // UTF-8
+        var check = sd_u8[i] << 1, cp = sd_u8[i], bits = 6
+        while ((check >> 7) & 1) {
+          cp = cp << 6 | (sd_u8[++i] & 0x3F)
+          check <<= 1
+          bits += 5
+        }
+        cp = cp & ((1 << bits) - 1)
+        res += String.fromCharCode(cp)
+
+      } else {
+        // ASCII
+        res += String.fromCharCode(sd_u8[i])
+      }
+    }
+    return res
+  }
+
+  function classOf(v) {
+    return v == 0x00? 'zero'
+         : v == 0xFF? 'all'
+         : v  < 0x20? 'low'
+         : v  < 0x7F? 'print'
+         :            'high'
+  }
+
+  for (var i = 0; i < u8.length; i += 4) {
+    // Fields (each char a nibble):
+    //   oozzxxyy
+    //       vvvv
+    var op = u8[i]
+    var z  = u8[i+1], x = u8[i+2], y = u8[i+3]
+    var v  = u8[i+3] << 8 | u8[i+2],
+        vi = v >= 0x8000? -((v ^ 0xffff) + 1) : v
+
+     // if      (z == 0x0e) human = sprintf("; args1_st   r%02u", x);
+     // else if (z == 0x0f) human = sprintf("; args1      r%02u", x);
+     // else                human = sprintf("; args+      r%02u", x);
+
+     // if      (z == 0x0e) human = sprintf("; args2_st   r%02u, r%02u", x, y);
+     // else if (z == 0x0f) human = sprintf("; args2      r%02u, r%02u", x, y);
+     // else                human = sprintf("; args+      r%02u, r%02u", x, y);
+
+    var human = ""
+    switch (op) {
+      case 0x01: /* 01 */ human = sprintf("; mov        r%02u, true", z); break;
+      case 0x02: /* 02 */ human = sprintf("; mov        r%02u, false", z); break;
+      case 0x03: /* 03 */
+        var vvi = sd_i32[v/4], vvf = sd_f32[v/4]
+        if ((vvi >> 24) < 0x10) human = sprintf("; ld         r%02u, %d  (= [%04x], %08x)", z, vvi, v, vvi);
+        else                    human = sprintf("; ld         r%02u, %f  (= [%04x], %08x)", z, vvf, v, vvi); break;
+      case 0x04: /* 04 */ human = sprintf("; ld str     r%02u, \"%s\"  (= [%04x])", z, readstring(v), v); break;
+      case 0x05: /* 05 */ human = sprintf("; mov        r%02u, r%02u", z, x); break;
+      case 0x06: /* 06 */ human = sprintf("; mov        r%02u, <res>", z); break;
+
+      case 0x07: /* 07 */ human = sprintf("; args1      [%02x] r%02u", z, x); break;
+      case 0x08: /* 08 */ human = sprintf("; args2      [%02x] r%02u, r%02u", z, x, y); break;
+      case 0x09: /* 09 */ human = sprintf("; args3      r%02u, r%02u, r%02u", z, x, y); break;
+
+      case 0x0a: /* 10 */ human = sprintf("; args??     [%02x %02x]", z, x); break;
+
+      case 0x0c: /* 12 */ human = sprintf("; getstatic  r%02u, %s", z, prettyxref(xrefs[v])); break;
+      case 0x0d: /* 13 */ human = sprintf("; deref      r%02u, r%02u", z, x); break;
+
+      case 0x0e: /* 14 */ human = sprintf("; getfield   r%02u, r%02u, %s", z, x, prettyxref(xrefs[y])); break;
+      case 0x0f: /* 15 */ human = sprintf("; <<0f>>     r%02u, %s", z, prettyxref(xrefs[v])); break;
+      // 0x0f: related to `ref`
+
+      case 0x12: /* 18 */ human = sprintf("; putindex   r%02u, r%02u", z, x); break;
+      case 0x13: /* 19 */ human = sprintf("; putfield   r%02u, %s, r%02u", z, prettyxref(xrefs[y]), x); break;
+      case 0x14: /* 20 */ human = sprintf("; putstatic  %s, r%02u", prettyxref(xrefs[v]), z); break;
+
+      case 0x1d: /* 29 */ human = sprintf("; inc        r%02u", z); break;
+
+      case 0x1f: /* 31 */ human = sprintf("; neg int?   r%02u, r%02u", z, x); break;
+
+      case 0x20: /* 32 */ human = sprintf("; add float  r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x21: /* 33 */ human = sprintf("; sub float  r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x22: /* 34 */ human = sprintf("; mul float  r%02u, r%02u, r%02u", z, x, y); break;
+
+      case 0x23: /* 35 */ human = sprintf("; add int?   r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x24: /* 36 */ human = sprintf("; sub int??  r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x25: /* 37 */ human = sprintf("; mul int??  r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x26: /* 38 */ human = sprintf("; neg float? r%02u, r%02u", z, x); break;
+
+      case 0x27: /* 39 */ human = sprintf("; gt int     r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x28: /* 40 */ human = sprintf("; cmp???     r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x29: /* 41 */ human = sprintf("; gt uint    r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x2b: /* 43 */ human = sprintf("; eq int     r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x2d: /* 45 */ human = sprintf("; gt float   r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x33: /* 51 */ human = sprintf("; eq bool    r%02u, r%02u, r%02u", z, x, y); break;
+
+      // 3b zz xx ff: something with two regs of uints
+
+      case 0x40: /* 64 */ human = sprintf("; not        r%02u, r%02u", z, x); break;
+
+      case 0x43: /* 67 */ human = sprintf("; jmp        %d", i/4 + vi); break;
+      case 0x44: /* 68 */ human = sprintf("; jmp2       %d if r%02u", i/4 + vi, z); break;
+      case 0x45: /* 69 */ human = sprintf("; jmp        %d if r%02u", i/4 + vi, z); break;
+
+      case 0x46: /* 70 */ human = sprintf("; decl       %u local, %u param, %u ???", z, x, y); break;
+      case 0x47: /* 71 */ human = sprintf("; ret"); break;
+      case 0x48: /* 72 */ human = sprintf("; ret        r00"); break;
+
+      case 0x49: /* 73 */ human = sprintf("; call res   %s", prettyxref(xrefs[v])); break;
+      case 0x4a: /* 74 */ human = sprintf("; call ???   %s", prettyxref(xrefs[v])); break;
+      case 0x4b: /* 75 */ human = sprintf("; call void  %s", prettyxref(xrefs[v])); break;
+
+   // case 0x4c: /* 76 */ human = sprintf("; slp?       r%02u", z); break;
+      case 0x4c: /* 76 */ human = sprintf("; jmp reg    r%02u", z); break;
+      case 0x4d: /* 77 */ human = sprintf("; putderef   r%02u, r%02u, r%02u  (deref ← val (<0f>type))", z, x, y); break;
+
+      case 0x4f: /* 79 */ human = sprintf("; new2       r%02u, %s", z, prettyxref(xrefs[v])); break;
+      case 0x50: /* 80 */ human = sprintf("; new        r%02u, %s", z, prettyxref(xrefs[v])); break;
+      case 0x51: /* 81 */ human = sprintf("; del        r%02u, %s", z, prettyxref(xrefs[v])); break;
+
+      // 0x53: related to `const ref`
+      // 53 ?? xx yy: access field yy of xx (object-type field)
+      case 0x53: /* 83 */ human = sprintf("; getfield&? r%02u, r%02u, %s", z, x, prettyxref(xrefs[y])); break;
+      case 0x55: /* 85 */ human = sprintf("; getindex&? r%02u, r%02u", z, x); break;
+
+      case 0x5b: /* 91 */ human = sprintf("; float2int  r%02u, r%02u", z, x); break;
+      case 0x5f: /* 95 */ human = sprintf("; int2float  r%02u, r%02u", z, x); break;
+      case 0x60: /* 96 */ human = sprintf("; uint2int   r%02u, r%02u", z, x); break;
+    }
+
+    // Address
+    var span = document.createElement('span')
+    span.classList.add('address')
+    span.appendChild(document.createTextNode(sprintf('%4u', i/4)))
+    pre.appendChild(span)
+
+    // Bytecode
+    function appendByte(v) {
+      var span = document.createElement('span')
+      span.classList.add(classOf(v))
+      span.appendChild(document.createTextNode(sprintf(' %02x', v)))
+      pre.appendChild(span)
+    }
+    appendByte(op)
+    appendByte(z)
+    appendByte(x)
+    appendByte(y)
+
+    // Human-readable part
+    pre.appendChild(document.createTextNode("  " + human + "\n"))
+  }
+
+  return pre
+}
+
+function view() {
+  var key = this.dataset['key'],
+      ent = xbin.by_key[key]
+
+  var cont = document.getElementById('view-cont')
+  cont.innerHTML = ""
+
+  // Breadcrumb
+  var path = [], obj = ent
+  while (obj.parent != null) {
+    path.push(obj)
+    if (obj.children != null && obj.children.length > 0) {
+      var el = document.querySelector('[data-key="' + obj.key + '"]')
+      if (el != null && !isToggled(el)) toggle.call(el)
+    }
+    obj = obj.parent
+  }
+  path = path.reverse()
+
+  var breadcrumb = document.createElement('ul')
+  breadcrumb.classList.add('breadcrumb')
+  path.forEach(function (n) {
+    var li = document.createElement('li')
+    var span = document.createElement('span')
+    span.classList.add('node', n.type)
+    if (n.type == 'package' && n.name == '') span.classList.add('implicit')
+    var name = n.pretty || n.name || "(none)"
+    span.appendChild(document.createTextNode(name))
+    li.appendChild(span)
+    breadcrumb.appendChild(li)
+  })
+  cont.appendChild(breadcrumb)
+
+  // Metadata
+  var dl = document.createElement('dl')
+  dl.classList.add('metadata')
+  function addEntry(key, value) {
+    var dt = document.createElement('dt'),
+        dd = document.createElement('dd')
+    dt.appendChild(document.createTextNode(key))
+    dd.appendChild(document.createTextNode(value))
+    dl.appendChild(dt)
+    dl.appendChild(dd)
+  }
+//addEntry('Section', ent.section)
+//addEntry('Offset',  sprintf("%08x", ent.offset))
+//addEntry('Size',    sprintf("%06x", ent.size))
+//addEntry('Address', sprintf("%08x", ent.address))
+  addEntry('Key',     sprintf("%d", ent.key))
+  if (ent.hash) addEntry('Hash', sprintf("%08x", ent.hash))
+
+  switch (ent.type) {
+    case 'field':
+      addEntry('Type', ent.typename)
+      addEntry('Flags', sprintf("%04x", ent.flags))
+      break
+  }
+
+  cont.appendChild(dl)
+
+  // Main content
+  /*
+  var sectionIdx = {
+    '.text':    1,
+    '.ctors':   9,
+    '.dtors':  10,
+    '.rodata': 11,
+    '.data':   12,
+    '.sdata':  13,
+    '.sdata2': 14,
+  }[ent.section]
+  if (sectionIdx == null) return
+  var start = filedata.header.offsets[sectionIdx] + ent.offset
+  var pre = hexdump(filedata.data.slice(start, start + ent.size), ent.address)
+  cont.appendChild(pre)
+  */
+  switch (ent.type) {
+    case 'package':
+      var pre = document.createElement('pre')
+      pre.appendChild(document.createTextNode(JSON.stringify(ent.raw, 0, 4)))
+      cont.appendChild(pre)
+      break
+
+    case 'method':
+   // var pre = hexdump(ent.bytecode, 0)
+      var pre = disassemble(ent, xbin)
+      cont.appendChild(pre)
+      break
+
+    case 'xrefs':
+      var pre = document.createElement('pre')
+      ent.xrefs.forEach((v,i) => {
+        pre.appendChild(document.createTextNode(sprintf("%4u %02x %08x %s\n", i, i, v, prettyxref(v))))
+      })
+      cont.appendChild(pre)
+      break
+
+    default:
+      cont.appendChild(document.createTextNode("unimplemented: " + ent.type))
+  }
+}
+
+function init() {
+//view.call(document.querySelector('.leaf'))
+}
+
+//xhr('files/mint/StepMCharaLastBattle.bin', 'blob', function (err, blob) {
+//xhr('files/mint/Archive.bin', 'blob', function (err, blob) {
+  xhr('files/mint/Etc.bin', 'blob', function (err, blob) {
+  if (err) throw err
+  var reader = new FileReader()
+  reader.onload = function () {
+    bench.tick()
+    xbin = parseXbin(reader.result)
+    bench.tock("parseXbin")
+
+    var el = document.getElementById('tree-cont')
+    var html = renderTree(xbin)
+    bench.tock("renderTree")
+    el.innerHTML = html
+    bench.tock("innerHTML=")
+    expandInit(el)
+    bench.tock("expandInit")
+    var leaves = el.querySelectorAll('.leaf')
+    Array.prototype.forEach.call(leaves, function (leaf) {
+      leaf.addEventListener('click', view, false)
+    })
+    bench.tock("init leaves")
+
+ // view.call(document.querySelector('.leaf[data-key="7251"]')) // TODO: hack/temporary
+ // view.call(document.querySelector('.leaf[data-key="599"]')) // TODO: hack/temporary
+ // view.call(document.querySelector('.leaf[data-key="747"]')) // TODO: hack/temporary
+    view.call(document.querySelector('.leaf[data-key="3731"]')) // TODO: hack/temporary
+  }
+  reader.readAsArrayBuffer(blob)
+
+  /*
+  var el = document.getElementById('tree-cont')
+  var html = renderTree(map)
+  bench.tock("renderTree")
+  el.innerHTML = html
+  bench.tock("innerHTML=")
+  expandInit(el)
+  bench.tock("expandInit")
+  var leaves = el.querySelectorAll('.leaf')
+  Array.prototype.forEach.call(leaves, function (leaf) {
+    leaf.addEventListener('click', view, false)
+  })
+  bench.tock("init leaves")
+  */
+
+  /*
+      var bp = new BinaryParser(reader.result)
+
+      var offsets = [], addresses = [], sizes = []
+      for (var i = 0; i < 18; i++) offsets.push(bp.read('u32'))
+      for (var i = 0; i < 18; i++) addresses.push(bp.read('u32'))
+      for (var i = 0; i < 18; i++) sizes.push(bp.read('u32'))
+      var bss_address = bp.read('u32')
+      var bss_size = bp.read('u32')
+      var entry_point = bp.read('u32')
+
+      filedata = {
+        header: {
+          offsets:     offsets,
+          addresses:   addresses,
+          sizes:       sizes,
+          bss_address: bss_address,
+          bss_size:    bss_size,
+          entry_point: entry_point
+        },
+        data: reader.result
+      }
+
+  */
+
+})
+    </script>
+  </body>
+</html>
