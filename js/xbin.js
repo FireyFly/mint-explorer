@@ -15,7 +15,8 @@ function read_xbin(bp) {
   var hd = bp.read([ { magic:         'buf[8]' },
                      { filesize:      'u32' },
                      { unk1:          'u32' }, // 65001
-                     { unk2:          'u32' }, // 0x00050001
+                     { unk2:          'u16' }, // 1
+                     { unk3:          'u16' }, // (game-dependent)
                      { packages_size: 'u32' },
                      { packages_ptr:  'u32' },
                      { files_size:    'u32' },
@@ -23,8 +24,8 @@ function read_xbin(bp) {
 
   var magic = Array.from(new Uint8Array(hd.magic))
   assert(magic.every((v,i) => v == "XBIN4\x12\x02\x00".charCodeAt(i)), "Bad magic number")
-  assert(hd.unk1 == 65001,      "unk1 != 65001")
-  assert(hd.unk2 == 0x00050001, "unk2 != 0x00050001")
+  assert(hd.unk1 == 65001, "unk1 != 65001")
+  assert(hd.unk2 == 1, "unk2 != 1")
 
   // Read package and file tables
   bp.seek(hd.packages_ptr)
@@ -171,6 +172,7 @@ function read_class(bp, base, offset) {
            // Scn.Title.CameraStateFirstAnim: 0004
            // Cmn.KeyChain.ModelSwingAlgorithm: 0004
            // GObj classes: 0105 for exposed, 0008 for impl
+           // Scn.Step.LChara.Common.CameraFilterCtrl: 0001
            unk1:     class_.unk1,
            children: fields.concat(methods, consts) }
 }
