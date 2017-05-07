@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>K3D dis</title>
+    <title>Mint Explorer</title>
     <link rel="stylesheet" type="text/css" href="css/expand-tree.css"></link>
     <style>
     html, body {
@@ -83,8 +83,11 @@
     </style>
   </head>
   <body>
-    <div id="tree-cont"></div>
-    <div id="view-cont">hello</div>
+    <div id="tree-cont">
+      <input type="file" id="file-selector" />
+      <div id="tree"></div>
+    </div>
+    <div id="view-cont">(Select a file)</div>
     <script src="js/binaryparser.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/xbin.js"></script>
@@ -392,17 +395,14 @@ function view() {
   }
 }
 
-//xhr('files/mint/StepMCharaLastBattle.bin', 'blob', function (err, blob) {
-//xhr('files/mint/Archive.bin', 'blob', function (err, blob) {
-  xhr('files/mint/Etc.bin', 'blob', function (err, blob) {
-  if (err) throw err
+function loadFile(blob) {
   var reader = new FileReader()
   reader.onload = function () {
     bench.tick()
     xbin = parseXbin(reader.result)
     bench.tock("parseXbin")
 
-    var el = document.getElementById('tree-cont')
+    var el = document.getElementById('tree')
     var html = renderTree(xbin)
     bench.tock("renderTree")
     el.innerHTML = html
@@ -418,7 +418,18 @@ function view() {
     view.call(document.querySelector('.leaf[data-key="3731"]')) // TODO: hack/temporary
   }
   reader.readAsArrayBuffer(blob)
-})
+}
+
+//-- Entry point ----------------------------------------------------
+void function () {
+  var el = document.querySelector('#file-selector')
+  el.addEventListener('change', function () {
+    loadFile(el.files[0])
+  }, false)
+
+  if (el.files.length > 0) loadFile(el.files[0])
+}()
+
     </script>
   </body>
 </html>
