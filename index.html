@@ -118,62 +118,6 @@ var bench = (function () {
 
 var xbin = null
 
-function hexdump(buf, offset) {
-  var u8 = new Uint8Array(buf)
-  var pre = document.createElement('pre')
-  pre.classList.add('hexdump')
-
-  function classOf(v) {
-    return v == 0x00? 'zero'
-         : v == 0xFF? 'all'
-         : v  < 0x20? 'low'
-         : v  < 0x7F? 'print'
-         :            'high'
-  }
-
-  for (var i = 0; i < u8.length; i += 0x10) {
-    // Address
-    var span = document.createElement('span')
-    span.classList.add('address')
-    span.appendChild(document.createTextNode(sprintf('%08x', offset + i)))
-    pre.appendChild(span)
-
-    // Hex part
-    for (var j = 0; j < 0x10; j++) {
-      if (j % 8 == 0) pre.appendChild(document.createTextNode(' '))
-
-      if (i + j < u8.length) {
-        var span = document.createElement('span')
-        span.classList.add(classOf(u8[i + j]))
-        span.appendChild(document.createTextNode(sprintf(' %02x', u8[i + j])))
-        pre.appendChild(span)
-      } else {
-        pre.appendChild(document.createTextNode('   '))
-      }
-    }
-    pre.appendChild(document.createTextNode(' '))
-
-    // Char part
-    for (var j = 0; j < 0x10; j++) {
-      if (j % 8 == 0) pre.appendChild(document.createTextNode(' '))
-
-      if (i + j < u8.length) {
-        var span = document.createElement('span')
-        span.classList.add(classOf(u8[i + j]))
-        var ch = 0x20 <= u8[i+j] && u8[i+j] < 0x7F?  String.fromCharCode(u8[i+j]) : '.'
-        span.appendChild(document.createTextNode(ch))
-        pre.appendChild(span)
-      } else {
-        pre.appendChild(document.createTextNode(' '))
-      }
-    }
-
-    pre.appendChild(document.createTextNode('\n'))
-  }
-
-  return pre
-}
-
 function prettyxref(xref, ent) {
   var target = xbin.by_hash[xref]
   if (target == null) return sprintf("#[%08x]", xref)
@@ -410,10 +354,6 @@ function view() {
     dl.appendChild(dt)
     dl.appendChild(dd)
   }
-//addEntry('Section', ent.section)
-//addEntry('Offset',  sprintf("%08x", ent.offset))
-//addEntry('Size',    sprintf("%06x", ent.size))
-//addEntry('Address', sprintf("%08x", ent.address))
   addEntry('Key',     sprintf("%d", ent.key))
   if (ent.hash) addEntry('Hash', sprintf("%08x", ent.hash))
 
@@ -427,21 +367,6 @@ function view() {
   cont.appendChild(dl)
 
   // Main content
-  /*
-  var sectionIdx = {
-    '.text':    1,
-    '.ctors':   9,
-    '.dtors':  10,
-    '.rodata': 11,
-    '.data':   12,
-    '.sdata':  13,
-    '.sdata2': 14,
-  }[ent.section]
-  if (sectionIdx == null) return
-  var start = filedata.header.offsets[sectionIdx] + ent.offset
-  var pre = hexdump(filedata.data.slice(start, start + ent.size), ent.address)
-  cont.appendChild(pre)
-  */
   switch (ent.type) {
     case 'package':
       var pre = document.createElement('pre')
@@ -450,7 +375,6 @@ function view() {
       break
 
     case 'method':
-   // var pre = hexdump(ent.bytecode, 0)
       var pre = disassemble(ent, xbin)
       cont.appendChild(pre)
       break
@@ -466,10 +390,6 @@ function view() {
     default:
       cont.appendChild(document.createTextNode("unimplemented: " + ent.type))
   }
-}
-
-function init() {
-//view.call(document.querySelector('.leaf'))
 }
 
 //xhr('files/mint/StepMCharaLastBattle.bin', 'blob', function (err, blob) {
@@ -495,53 +415,9 @@ function init() {
     })
     bench.tock("init leaves")
 
- // view.call(document.querySelector('.leaf[data-key="7251"]')) // TODO: hack/temporary
- // view.call(document.querySelector('.leaf[data-key="599"]')) // TODO: hack/temporary
- // view.call(document.querySelector('.leaf[data-key="747"]')) // TODO: hack/temporary
     view.call(document.querySelector('.leaf[data-key="3731"]')) // TODO: hack/temporary
   }
   reader.readAsArrayBuffer(blob)
-
-  /*
-  var el = document.getElementById('tree-cont')
-  var html = renderTree(map)
-  bench.tock("renderTree")
-  el.innerHTML = html
-  bench.tock("innerHTML=")
-  expandInit(el)
-  bench.tock("expandInit")
-  var leaves = el.querySelectorAll('.leaf')
-  Array.prototype.forEach.call(leaves, function (leaf) {
-    leaf.addEventListener('click', view, false)
-  })
-  bench.tock("init leaves")
-  */
-
-  /*
-      var bp = new BinaryParser(reader.result)
-
-      var offsets = [], addresses = [], sizes = []
-      for (var i = 0; i < 18; i++) offsets.push(bp.read('u32'))
-      for (var i = 0; i < 18; i++) addresses.push(bp.read('u32'))
-      for (var i = 0; i < 18; i++) sizes.push(bp.read('u32'))
-      var bss_address = bp.read('u32')
-      var bss_size = bp.read('u32')
-      var entry_point = bp.read('u32')
-
-      filedata = {
-        header: {
-          offsets:     offsets,
-          addresses:   addresses,
-          sizes:       sizes,
-          bss_address: bss_address,
-          bss_size:    bss_size,
-          entry_point: entry_point
-        },
-        data: reader.result
-      }
-
-  */
-
 })
     </script>
   </body>
