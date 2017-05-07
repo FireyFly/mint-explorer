@@ -236,13 +236,15 @@ function disassemble(method, xbin) {
 
       case 0x26: /* 38 */ human = sprintf("; neg float? r%02u, r%02u", z, x); break;
 
-      case 0x27: /* 39 */ human = sprintf("; lt?int?    r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x28: /* 40 */ human = sprintf("; lt uint?   r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x29: /* 41 */ human = sprintf("; gt uint?   r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x27: /* 39 */ human = sprintf("; lt int     r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x28: /* 40 */ human = sprintf("; ?? uint?   r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x29: /* 41 */ human = sprintf("; lt uint    r%02u, r%02u, r%02u", z, x, y); break;
+
       case 0x2b: /* 43 */ human = sprintf("; eq int     r%02u, r%02u, r%02u", z, x, y); break;
       case 0x2c: /* 44 */ human = sprintf("; ?? int     r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x2d: /* 45 */ human = sprintf("; gt float?  r%02u, r%02u, r%02u", z, x, y); break;
+      case 0x2d: /* 45 */ human = sprintf("; lt float   r%02u, r%02u, r%02u", z, x, y); break;
       case 0x2e: /* 46 */ human = sprintf("; ?? float   r%02u, r%02u, r%02u", z, x, y); break;
+
       case 0x33: /* 51 */ human = sprintf("; eq bool    r%02u, r%02u, r%02u", z, x, y); break;
 
       // 3b zz xx ff: found with arrays, passed <index> and <array length>
