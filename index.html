@@ -93,19 +93,6 @@
     <script src="js/xbin.js"></script>
     <script src="js/expand-tree.js"></script>
     <script>
-function xhr(url, type, callback) {
-  var req = new XMLHttpRequest()
-  if (type == 'blob') req.overrideMimeType('application/octet-stream')
-  req.onreadystatechange = function () {
-    if (req.readyState == 4) {
-      callback(null, req.response, req)
-    }
-  }
-  req.open('GET', url, true)
-  req.responseType = type // 'blob'
-  req.send()
-}
-
 var bench = (function () {
   var start
   function tick() {
@@ -338,7 +325,7 @@ function view() {
     }
     obj = obj.parent
   }
-  path = path.reverse()
+  path = path.reverse().slice(1)
 
   var breadcrumb = document.createElement('ul')
   breadcrumb.classList.add('breadcrumb')
