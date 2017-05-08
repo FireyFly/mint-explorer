@@ -190,8 +190,13 @@ function disassemble(method, xbin) {
     var v  = u8[i+3] << 8 | u8[i+2],
         vi = v >= 0x8000? -((v ^ 0xffff) + 1) : v
 
+    var gameId = xbin.tree.unk3
+    var opIdx = gameId == 5? op                       // K3D
+              : gameId == 8? op >= 0x4c? op - 1 : op  // Fighters
+              :              op
+
     var human = ""
-    switch (op) {
+    switch (opIdx) {
       case 0x01: /* 01 */ human = sprintf("; mov        r%02u, true", z); break;
       case 0x02: /* 02 */ human = sprintf("; mov        r%02u, false", z); break;
       case 0x03: /* 03 */
@@ -276,7 +281,8 @@ function disassemble(method, xbin) {
       case 0x53: /* 83 */ human = sprintf("; getfield&  r%02u, r%02u, %s", z, x, prettyxref_(xrefs[y])); break;
       case 0x54: /* 84 */ human = sprintf("; mkarray    r%02u", z); break;
       case 0x55: /* 85 */ human = sprintf("; getindex&  r%02u, r%02u (primitive)", z, x); break;
-      case 0x55: /* 86 */ human = sprintf("; delarray   r%02u, r%02u", z, x); break;
+      case 0x56: /* 86 */ human = sprintf("; delarray   r%02u, r%02u", z, x); break;
+
       case 0x59: /* 89 */ human = sprintf("; getindex&  r%02u, r%02u, r%02u (object type)", z, x, y); break;
 
       case 0x5b: /* 91 */ human = sprintf("; float2int  r%02u, r%02u", z, x); break;

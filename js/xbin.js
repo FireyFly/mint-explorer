@@ -50,6 +50,7 @@ function read_xbin(bp) {
       files = file_table.map(ent => read_file(bp, base, ent))
 
   return { type:     'xbin',
+           unk3:     hd.unk3,
            packages: packages,
            files:    files,
            children: [ packages[0] ] }
