@@ -1,0 +1,34 @@
+html, body {
+  font: 1.0em sans-serif;
+  color: #EEE;
+  background: #222;
+}
+::-moz-selection {
+  background-color: #000 !important;
+}
+
+#tree-cont {
+  background: #222;
+}
+
+.node.package::before { background: #A36; content: "P" }
+.node.file::before    { background: #395; content: "F" }
+.node.class::before   { background: #963; content: "C" }
+.node.field::before   { background: #793; content: "f" }
+.node.method::before  { background: #369; content: "m" }
+.node.const::before   { background: #A43; content: "c" }
+
+#view-cont .breadcrumb > li:not(:first-child)::before {
+  color: #999;
+}
+
+#view-cont .metadata dd {
+  color: #999;
+}
+
+.hexdump .address , .disasm .address { color: #999; }
+.hexdump .zero    , .disasm .zero    { color: #424242; }
+.hexdump .low     , .disasm .low     { color: #9c6; }
+.hexdump .high    , .disasm .high    { color: #96f; }
+.hexdump .all     , .disasm .all     { color: #c33; }
+

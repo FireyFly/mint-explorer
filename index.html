@@ -3,84 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <title>Mint Explorer</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css"></link>
     <link rel="stylesheet" type="text/css" href="css/expand-tree.css"></link>
-    <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: auto;
-      font: 1.0em sans-serif;
-      color: #EEE;
-      background: #222;
-    }
-    ::-moz-selection {
-      background-color: #000 !important;
-    }
-
-    #tree-cont {
-      position: fixed;
-      bottom: 0;
-      float: left;
-      width: 20em;
-      height: 100%;
-      overflow: auto;
-      background: #222;
-    }
-    #tree-cont li {
-      white-space: nowrap;
-    }
-    #tree-cont .node {
-      cursor: default;
-    }
-
-    .node.package::before { background: #A36; content: "P" }
-    .node.file::before    { background: #395; content: "F" }
-    .node.class::before   { background: #963; content: "C" }
-    .node.field::before   { background: #793; content: "f" }
-    .node.method::before  { background: #369; content: "m" }
-    .node.const::before   { background: #A43; content: "c" }
-
-
-    #view-cont {
-      padding: 1em;
-      margin-left: 20em;
-    }
-
-    #view-cont .breadcrumb {
-      list-style-type: none;
-      padding-left: 0;
-    }
-    #view-cont .breadcrumb > li {
-      display: inline-block;
-    }
-    #view-cont .breadcrumb > li:not(:first-child)::before {
-      display: inline-block;
-      padding-left: 0.4em;
-      padding-right: 0.3em;
-      content: "〉";
-      cursor: default;
-      color: #999;
-    }
-
-    #view-cont .metadata dt, dd {
-      display: inline-block;
-    }
-    #view-cont .metadata dt {
-    }
-    #view-cont .metadata dd {
-      margin-left: 0.2em;
-      margin-right: 1em;
-      color: #999;
-    }
-
-    .hexdump .address , .disasm .address { color: #999; }
-    .hexdump .zero    , .disasm .zero    { color: #424242; }
-    .hexdump .low     , .disasm .low     { color: #9c6; }
-    .hexdump .high    , .disasm .high    { color: #96f; }
-    .hexdump .all     , .disasm .all     { color: #c33; }
-
-    </style>
+    <link rel="stylesheet" type="text/css" href="css/theme.css"></link>
   </head>
   <body>
     <div id="tree-cont">

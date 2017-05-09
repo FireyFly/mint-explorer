@@ -1,0 +1,56 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: auto;
+}
+::-moz-selection {
+  background-color: #000 !important;
+}
+
+#tree-cont {
+  position: fixed;
+  bottom: 0;
+  float: left;
+  width: 20em;
+  height: 100%;
+  overflow: auto;
+}
+#tree-cont li {
+  white-space: nowrap;
+}
+#tree-cont .node {
+  cursor: default;
+}
+
+
+#view-cont {
+  padding: 1em;
+  margin-left: 20em;
+}
+
+#view-cont .breadcrumb {
+  list-style-type: none;
+  padding-left: 0;
+}
+#view-cont .breadcrumb > li {
+  display: inline-block;
+}
+#view-cont .breadcrumb > li:not(:first-child)::before {
+  display: inline-block;
+  padding-left: 0.4em;
+  padding-right: 0.3em;
+  content: "〉";
+  cursor: default;
+}
+
+#view-cont .metadata dt, dd {
+  display: inline-block;
+}
+#view-cont .metadata dt {
+}
+#view-cont .metadata dd {
+  margin-left: 0.2em;
+  margin-right: 1em;
+}
+
