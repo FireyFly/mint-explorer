@@ -1,4 +1,3 @@
-
 function readstr(bp, offset) {
   bp.seek(offset)
   var size = bp.read('u32')
@@ -274,60 +273,3 @@ function parseXbin(buf) {
   return postprocessXbin(root)
 }
 
-
-//-- renderTree -----------------------------------------------------
-function entify(str) {
-  return str.replace(/[<>&]/g, function (ch) {
-    return {'<':'&lt;', '>':'&gt;', '&':'&amp;'}[ch]
-  })
-}
-
-function renderTree(xbin) {
-  function format(pat, obj) {
-    return pat.replace(/{{(\w+)}}/g, function (_, key) {
-      return obj[key]
-    })
-  }
-
-  function renderNode(node) {
-    var isInternal = node.children != null && node.children.length != 0;
-    var name = node.pretty || node.name || "(none)"
-
-    if (isInternal) {
-      //-- Internal node
-      var isImplicit = node.type == 'package' && node.name == ''
-
-      var pattern = [ '<li>',
-                        '<span class="expand" data-key="{{key}}">⊞</span>',
-                        '<span class="node {{classes}}">{{pretty}}</span>',
-                        '<ul>{{children}}</ul>',
-                      '</li>' ].join("")
-
-      var children = node.children.map(renderNode).join("")
-      return format(pattern, { key:      node.key,
-                               classes:  node.type + (isImplicit? ' implicit' : ''),
-                               pretty:   entify(name),
-                               children: children })
-
-    } else {
-      //-- Leaf node
-      var pattern = [ '<li class="leaf" data-key="{{key}}">',
-                        '<span class="noexpand"></span>',
-                        '<span class="node {{classes}}">{{pretty}}</span>',
-                      '</li>' ].join("")
-
-      return format(pattern, { key:      node.key,
-                               classes:  node.type,
-                               pretty:   entify(name) })
-
-    }
-  }
-
-//var res = []
-  var res = xbin.tree.children[0].children.map(renderNode).join("")
-
-//xbin.tree.children.forEach(function (k, i) {
-//  res.push(renderNode(xbin.tree.ch[k]))
-//})
-  return '<ul class="function-tree">' + res + '</ul>'
-}
