@@ -232,15 +232,10 @@ function read_const(bp, base, offset) {
 
 
 //-------------------------------------------------------------------
-function parseXbin(buf) {
-  var bp = new BinaryParser(buf)
-  bp.flipped = true
-
-  var xbin = read_xbin(bp)
-
-  xbin.packages.forEach(pack => {
-    pack.subpackages = pack.subpackages.map(i => xbin.packages[i])
-    pack.subfiles = pack.subfiles.map(i => xbin.files[i])
+function postprocessXbin(root, xbin) {
+  root.packages.forEach(pack => {
+    pack.subpackages = pack.subpackages.map(i => root.packages[i])
+    pack.subfiles = pack.subfiles.map(i => root.files[i])
     pack.children = pack.subpackages.concat(pack.subfiles)
   })
 
@@ -251,22 +246,32 @@ function parseXbin(buf) {
       obj.children.forEach(setParent.bind(null, obj))
     }
   }
-  setParent(null, xbin)
+  setParent(null, root)
 
-  var hash  = {},
+  var byHash  = {},
       byKey = {},
-      key   = 0
+      key = 0
   function putHash(obj) {
-    if (obj.hash != null) hash[obj.hash] = obj
+    if (obj.hash != null) byHash[obj.hash] = obj
     obj.key = key++
     byKey[obj.key] = obj
     if (obj.children != null) {
       obj.children.forEach(putHash)
     }
   }
-  putHash(xbin)
+  putHash(root)
 
-  return { tree: xbin, by_hash: hash, by_key: byKey }
+  return { tree:            root,
+           by_hash:         byHash,
+           by_key:          byKey }
+}
+
+function parseXbin(buf) {
+  var bp = new BinaryParser(buf)
+  bp.flipped = true
+
+  var root = read_xbin(bp)
+  return postprocessXbin(root)
 }
 
 
@@ -319,7 +324,7 @@ function renderTree(xbin) {
   }
 
 //var res = []
-  var res = xbin.tree.children.map(renderNode).join("")
+  var res = xbin.tree.children[0].children.map(renderNode).join("")
 
 //xbin.tree.children.forEach(function (k, i) {
 //  res.push(renderNode(xbin.tree.ch[k]))

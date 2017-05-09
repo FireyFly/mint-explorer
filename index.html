@@ -84,7 +84,7 @@
   </head>
   <body>
     <div id="tree-cont">
-      <input type="file" id="file-selector" />
+      <input type="file" multiple="multiple" id="file-selector" />
       <div id="tree"></div>
     </div>
     <div id="view-cont">(Select a file)</div>
@@ -279,8 +279,9 @@ function disassemble(method, xbin) {
       case 0x5f: /* 95 */ human = sprintf("; int2float  r%02u, r%02u", z, x); break;
       case 0x60: /* 96 */ human = sprintf("; uint2float r%02u, r%02u", z, x); break;
 
-      // References an external class with unk1 $0001
-   // case 0x61: /* 97 */ human = sprintf("; <<61>>     r%02u, %s", z, prettyxref_(xrefs[v])); break;
+      // References a class with unk1 $0001
+      case 0x61: /* 97 */ human = sprintf("; <<61>>     r%02u, %s", z, prettyxref_(xrefs[v])); break;
+      case 0x63: /* 99 */ human = sprintf("; <<63>>     r%02u, %08x", z, sd_u32[v/4]); break;
     }
 
     // Address
@@ -390,7 +391,7 @@ function view() {
   }
 }
 
-function loadFile(blob) {
+function loadFiles(files) {
   var reader = new FileReader()
   reader.onload = function () {
     bench.tick()
@@ -412,17 +413,17 @@ function loadFile(blob) {
 
     view.call(document.querySelector('.leaf[data-key="3731"]')) // TODO: hack/temporary
   }
-  reader.readAsArrayBuffer(blob)
+  reader.readAsArrayBuffer(files[0])
 }
 
 //-- Entry point ----------------------------------------------------
 void function () {
   var el = document.querySelector('#file-selector')
   el.addEventListener('change', function () {
-    loadFile(el.files[0])
+    loadFiles(el.files)
   }, false)
 
-  if (el.files.length > 0) loadFile(el.files[0])
+  if (el.files.length > 0) loadFiles(el.files)
 }()
 
     </script>
