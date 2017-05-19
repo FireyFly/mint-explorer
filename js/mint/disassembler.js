@@ -1,3 +1,168 @@
+//-- Mini-DSL for instructions --------------------------------------
+
+// Types
+// ---------
+// bool         ┐
+// int          │
+// uint         ├ primitive types
+// float        │
+// string       ┘
+// <enum>       loaded like integer, but is a separate class
+// <object>     class type
+// ---------
+// u?int        int/uint combo. maybe also <enum>
+// word         int/uint/<enum>/float. any 32-bit value stored in the
+//              static data area
+// ~x,~y,~z     type of register <x/y/z>
+// ~v           type of field/class <v>
+// ~&expr       ref ~expr
+// ~*expr       (deref) ~expr
+
+// TODO wrt types:
+// * Do integer arithmetic instructions work with both int and uint?
+// * When are <enum>s akin to integers?  only for ld purposes, or otherwise
+//   too?  can you perform arithmetic on <enum>s?
+
+var instructionSpecs = {
+// op     mnemonic   params              write           read
+  0x01: ' mov        rz, true          | z:bool        |                   ',
+  0x02: ' mov        rz, false         | z:bool        |                   ',
+  0x03: ' ld         rz, data:v        | z:word        |                   ',
+  0x04: ' ld         rz, data_s:v      | z:string      |                   ', // FIXME: data_s is temporary since we aren't handling types yet
+  0x05: ' mov        rz, rx            | z:~x          | x                 ',
+  0x06: ' mov        rz, <res>         | z:~RES        | RES               ',
+
+  // 0e/0f? offset? (0e/0f for methods, 00 for static)
+  // TODO: maybe don't read from ARGS here?
+  0x07: ' args1      [z] rx            | ARGS          | ARGS,x            ',
+  0x08: ' args2      [z] rx, ry        | ARGS          | ARGS,x,y          ',
+  0x09: ' args3      rz, rx, ry        | ARGS          | ARGS,z,x,y        ',
+
+  0x0a: ' args??     [z x]             | ARGS          | ARGS              ',
+
+  0x0c: ' getstatic  rz, field:v       | z:~v          |                   ',
+  0x0d: ' getderef   rz, rx            | z:~*x         | x                 ',
+  0x0e: ' getfield   rz, rx, field:y   | z:~&y         | x                 ',
+
+  // TODO: figure out if int or uint here?
+  0x0f: ' sizeof     rz, class:v       | z:uint        |                   ',
+
+  0x12: ' putderef   rz, rx            |               | z,x               ',
+  0x13: ' putfield   rz, field:y, rx   |               | z,x               ',
+  0x14: ' putstatic  field:v, rz       |               | z                 ',
+
+  0x15: ' addi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x16: ' subi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x17: ' muli       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x18: ' divi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x19: ' modi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+
+  0x1d: ' inci       rz                | z:~z          | z:u?int           ',
+
+  0x1f: ' negi       rz, rx            | z:~x          | x:u?int           ',
+
+  0x20: ' addf       rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x21: ' subf       rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x22: ' mulf       rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x23: ' divf       rz, rx, ry        | z:~x          | x:float,y:float   ',
+
+  0x26: ' negf?      rz, rx            | z:~x          | x                 ',
+
+  0x27: ' lt int     rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x28: ' ?? uint?   rz, rx, ry        | z:bool        | x:uint,y:uint     ',
+  0x29: ' lt uint    rz, rx, ry        | z:bool        | x:uint,y:uint     ',
+
+  0x2b: ' eq int     rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x2c: ' ?? int     rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x2d: ' lt float   rz, rx, ry        | z:bool        | x:float,y:float   ',
+  0x2e: ' ?? float   rz, rx, ry        | z:bool        | x:float,y:float   ',
+
+  0x33: ' eq bool    rz, rx, ry        | z:bool        | x:bool,y:bool     ',
+
+  // 3b zz xx ff: found with arrays, passed <index> and <array length>
+  // TODO: int or uint? does this actually write to rz? no clue.
+  0x3b: ' capindex?  rz, rx            | z:int         | z:int,x:uint      ',
+
+  0x3d: ' bitor      rz, rx, ry        | z:uint        | x:uint,y:uint     ',
+
+  0x40: ' not        rz, rx            | z:bool        | x:bool            ',
+
+  0x43: ' jmp        reloffset:v       | PC            |                   ',
+  0x44: ' jmp if     reloffset:v, rz   | PC            | z:bool            ',
+  0x45: ' jmp not    reloffset:v, rz   | PC            | z:bool            ',
+
+  // decl: z local, x param, y regoffset (lowest register used for temporaries)
+  0x46: ' decl       z, x, y           |               |                   ',
+  0x47: ' ret                          |               |                   ',
+  0x48: ' ret        ry                |               | z                 ',
+  0x49: ' call local method:v          | RES           | ARGS              ',
+  0x4a: ' call ???   method:v          | RES           | ARGS              ',
+  0x4b: ' call ext   method:v          | RES           | ARGS              ',
+  0x4c: ' jmp reg?   rz                | PC            | z:int             ',
+  // TODO: enforce z ~ x type constraint
+  0x4d: ' copy?      rz, rx, ry        |               | z,x,y:uint        ',
+
+  0x4f: ' new        rz, class:v       | z:~v          |                   ',
+  0x50: ' new&       rz, class:v       | z:~&v         |                   ',
+  // TODO: is 0x51 even useful? should I have one primitive and one object-type register per regno?
+  0x51: ' del?       rz, class:v       |               |                   ',
+
+  // 0x53: related to `const ref`
+  // 53 ?? xx yy: access field yy of xx (object-type field)
+  0x53: ' getfield&  rz, rx, field:y   | z:~&v         | x                 ',
+  0x54: ' mkarray    rz                | z             | z:uint            ',
+  0x55: ' getindex&  rz, rx            | z:~&*x        | x                 ',
+  0x56: ' delarray   rz, rx            |               | z,x:uint          ',
+
+  // TODO: I forget how this instruction works
+  0x59: ' getindex&  rz, rx, ry        | z             | x,y               ',
+
+  0x5b: ' f2i        rz, rx            | z:int         | x:float           ',
+  0x5c: ' u2e?       rz, rx            | z             | x:uint            ',
+  0x5d: ' i2u?       rz, rx            | z:uint        | x:int             ',
+  0x5e: ' f2u        rz, rx            | z:uint        | x:float           ',
+  0x5f: ' i2f        rz, rx            | z:float       | x:int             ',
+  0x60: ' u2f        rz, rx            | z:float       | x:uint            ',
+
+  // References a class with unk1 $0001
+  0x61: ' <<61>>     rz, class:v       | z             |                   ',
+  0x63: ' <<63>>     rz, data:v        | z             |                   ',
+}
+
+// Parse mini-DSL for instruction specifications, turning each spec into a
+// useful structure to be used for parsing each bytecode instruction.
+for (var k in instructionSpecs) {
+  var [pretty, write, read] = instructionSpecs[k].split("|").map(s => s.trim())
+
+  var params = []
+  pretty = pretty.replace(/\b(r[xyz]|(?:\w+:)?[xyzv])\b/g, function (spec) {
+    var field = spec,
+        type  = 'imm'
+    // Handle `type:v` style syntax
+    if (spec.indexOf(':') >= 0) [type,field] = spec.split(':')
+    // Handle r[xyz]
+    if (field[0] == 'r') type = 'reg', field = field.slice(1)
+
+    params.push({ type:type, field:field })
+
+    return { 'imm':       '%02x',   // immediate
+             'reg':       'r%02u',  // register
+             'data':      '0x%08x', // static data (32-bit or string) (TODO: type?)
+             'data_s':    '"%s"',   // static data (string) (FIXME: remove)
+             'class':     '%s',     // xref: class target
+             'method':    '%s',     // xref: method target
+             'field':     '%s',     // xref: field target (static or member)
+             'reloffset': '%d',     // relative jmp offsets (signed)
+           }[type]
+  })
+
+  // TODO: parse write/read, with types
+  instructionSpecs[k] = { format: pretty,
+                          params: params, }
+}
+
+
+//-- Disassembler ---------------------------------------------------
 function prettyxref(xref, ent, xbin) {
   var target = xbin.by_hash[xref]
   if (target == null) return sprintf("#[%08x]", xref)
@@ -7,8 +172,6 @@ function prettyxref(xref, ent, xbin) {
 
 function disassemble(method, xbin) {
   var u8 = new Uint8Array(method.bytecode)
-  var pre = document.createElement('pre')
-  pre.classList.add('disasm')
 
   var file  = method.parent.parent,
       xrefs = file.xrefs
@@ -41,23 +204,7 @@ function disassemble(method, xbin) {
     return res
   }
 
-  function prettyxref_(v) {
-    return prettyxref(v, method, xbin)
-  }
-  function argoffset(v) {
-    return v == 0x0e? "."
-         : v == 0x0f? "->"
-         : sprintf("[%02x]", v)
-  }
-
-  function classOf(v) {
-    return v == 0x00? 'zero'
-         : v == 0xFF? 'all'
-         : v  < 0x20? 'low'
-         : v  < 0x7F? 'print'
-         :            'high'
-  }
-
+  var instrs = []
   for (var i = 0; i < u8.length; i += 4) {
     // Fields (each char a nibble):
     //   oozzxxyy
@@ -67,117 +214,69 @@ function disassemble(method, xbin) {
     var v  = u8[i+3] << 8 | u8[i+2],
         vi = v >= 0x8000? -((v ^ 0xffff) + 1) : v
 
+    // FIXME: ugly hack to be able to load Fighters.  The proper solution
+    // would probably involve building an array of instruction specs, and
+    // conditionally adding certain instructions depending on `gameId`. (would
+    // need to check which opcodes are which instructions in other versions of
+    // the engine, too.)
     var gameId = xbin.tree.unk3
     var opIdx = gameId == 5? op                       // K3D
               : gameId == 8? op >= 0x4c? op - 1 : op  // Fighters
               :              op
 
-    var human = ""
-    switch (opIdx) {
-      case 0x01: /* 01 */ human = sprintf("; mov        r%02u, true", z); break;
-      case 0x02: /* 02 */ human = sprintf("; mov        r%02u, false", z); break;
-      case 0x03: /* 03 */
-        var vvu = sd_u32[v/4], vvf = sd_f32[v/4]
-        if ((vvu >> 24) < 0x10) human = sprintf("; ld         r%02u, %d (0x%08x)", z, vvu, vvu);
-        else                    human = sprintf("; ld         r%02u, %f (0x%08x)", z, vvf, vvu); break;
-      case 0x04: /* 04 */ human = sprintf("; ld str     r%02u, \"%s\"", z, readstring(v), v); break;
-      case 0x05: /* 05 */ human = sprintf("; mov        r%02u, r%02u", z, x); break;
-      case 0x06: /* 06 */ human = sprintf("; mov        r%02u, <res>", z); break;
+    // Decode opcode
+    var spec = instructionSpecs[op]
 
-      case 0x07: /* 07 */ human = sprintf("; args1      %s r%02u", argoffset(z), x); break;
-      case 0x08: /* 08 */ human = sprintf("; args2      %s r%02u, r%02u", argoffset(z), x, y); break;  // 0e/0f? offset? (0e/0f for methods, 00 for static)
-      case 0x09: /* 09 */ human = sprintf("; args3      r%02u, r%02u, r%02u", z, x, y); break;
+    var args = spec.params.map(({type, field}) => {
+                 var value = {x,y,z,v}[field]
+                 switch (type) {
+                   case 'imm':
+                   case 'reg':       return value
+                   case 'data':      return sd_u32[value/4]
+                   case 'data_s':    return readstring(value)
+                   case 'class':
+                   case 'method':
+                   case 'field':     return xrefs[value]
+                   case 'reloffset': return field == v? vi : value
+                   default:          return '<?UNIMPLEMENTED?>'
+                 }
+               })
 
-      case 0x0a: /* 10 */ human = sprintf("; args??     [%02x %02x]", z, x); break;
+    instrs.push({ op:       op,
+                  raw:      [op,z,x,y],
+                  mnemonic: spec.format.match(/^[^ ]+/)[0],
+                  index:    i/4,
+                  method:   method,
+                  spec:     spec,
+                  args:     args,
+                  pretty:   sprintf.apply(null,
+                              [spec.format].concat(args.map((v,i) =>
+                                ['class','method','field'].indexOf(spec.params[i].type) >= 0?
+                                  prettyxref(v,method,xbin) : v)))
+                })
+  }
 
-      case 0x0c: /* 12 */ human = sprintf("; getstatic  r%02u, %s", z, prettyxref_(xrefs[v])); break;
-      case 0x0d: /* 13 */ human = sprintf("; getderef   r%02u, r%02u", z, x); break;
-      case 0x0e: /* 14 */ human = sprintf("; getfield   r%02u, r%02u, %s", z, x, prettyxref_(xrefs[y])); break;
+  return instrs
+}
 
-      case 0x0f: /* 15 */ human = sprintf("; sizeof     r%02u, %s", z, prettyxref_(xrefs[v])); break;
-      // 0x0f: related to `ref`
+//-- Disasm renderer ------------------------------------------------
+function render_disassembly(instrs) {
+  var pre = document.createElement('pre')
+  pre.classList.add('disasm')
 
-      case 0x12: /* 18 */ human = sprintf("; putderef   r%02u, r%02u", z, x); break;
-      case 0x13: /* 19 */ human = sprintf("; putfield   r%02u, %s, r%02u", z, prettyxref_(xrefs[y]), x); break;
-      case 0x14: /* 20 */ human = sprintf("; putstatic  %s, r%02u", prettyxref_(xrefs[v]), z); break;
+  function classOf(v) {
+    return v == 0x00? 'zero'
+         : v == 0xFF? 'all'
+         : v  < 0x20? 'low'
+         : v  < 0x7F? 'print'
+         :            'high'
+  }
 
-      case 0x15: /* 21 */ human = sprintf("; add int    r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x16: /* 22 */ human = sprintf("; sub int    r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x17: /* 23 */ human = sprintf("; mul int    r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x18: /* 24 */ human = sprintf("; div int    r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x19: /* 25 */ human = sprintf("; mod int    r%02u, r%02u, r%02u", z, x, y); break;
-
-      case 0x1d: /* 29 */ human = sprintf("; inc int    r%02u", z); break;
-
-      case 0x1f: /* 31 */ human = sprintf("; neg int    r%02u, r%02u", z, x); break;
-
-      case 0x20: /* 32 */ human = sprintf("; add float  r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x21: /* 33 */ human = sprintf("; sub float  r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x22: /* 34 */ human = sprintf("; mul float  r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x23: /* 35 */ human = sprintf("; div float  r%02u, r%02u, r%02u", z, x, y); break;
-
-      case 0x26: /* 38 */ human = sprintf("; neg float? r%02u, r%02u", z, x); break;
-
-      case 0x27: /* 39 */ human = sprintf("; lt int     r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x28: /* 40 */ human = sprintf("; ?? uint?   r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x29: /* 41 */ human = sprintf("; lt uint    r%02u, r%02u, r%02u", z, x, y); break;
-
-      case 0x2b: /* 43 */ human = sprintf("; eq int     r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x2c: /* 44 */ human = sprintf("; ?? int     r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x2d: /* 45 */ human = sprintf("; lt float   r%02u, r%02u, r%02u", z, x, y); break;
-      case 0x2e: /* 46 */ human = sprintf("; ?? float   r%02u, r%02u, r%02u", z, x, y); break;
-
-      case 0x33: /* 51 */ human = sprintf("; eq bool    r%02u, r%02u, r%02u", z, x, y); break;
-
-      // 3b zz xx ff: found with arrays, passed <index> and <array length>
-      case 0x3b: /* 59 */ human = sprintf("; capindex?  r%02u, r%02u", z, x); break;
-
-      case 0x3d: /* 61 */ human = sprintf("; bitor      r%02u, r%02u, r%02u", z, x, y); break;
-
-      case 0x40: /* 64 */ human = sprintf("; not        r%02u, r%02u", z, x); break;
-
-      case 0x43: /* 67 */ human = sprintf("; jmp        %d", i/4 + vi); break;
-      case 0x44: /* 68 */ human = sprintf("; jmp if     %d, r%02u", i/4 + vi, z); break;
-      case 0x45: /* 69 */ human = sprintf("; jmp not    %d, r%02u", i/4 + vi, z); break;
-
-      case 0x46: /* 70 */ human = sprintf("; decl       %u local, %u param, %u specialregs", z, x, y); break;
-      case 0x47: /* 71 */ human = sprintf("; ret"); break;
-      case 0x48: /* 72 */ human = sprintf("; ret        r00"); break;
-      case 0x49: /* 73 */ human = sprintf("; call near  %s", prettyxref_(xrefs[v])); break;
-      case 0x4a: /* 74 */ human = sprintf("; call ???   %s", prettyxref_(xrefs[v])); break;
-      case 0x4b: /* 75 */ human = sprintf("; call ext   %s", prettyxref_(xrefs[v])); break;
-      case 0x4c: /* 76 */ human = sprintf("; jmp reg    r%02u", z); break;
-      case 0x4d: /* 77 */ human = sprintf("; copy?      r%02u, r%02u, r%02u", z, x, y); break;
-
-      case 0x4f: /* 79 */ human = sprintf("; new        r%02u, %s", z, prettyxref_(xrefs[v])); break;
-      case 0x50: /* 80 */ human = sprintf("; new&       r%02u, %s", z, prettyxref_(xrefs[v])); break;
-      case 0x51: /* 81 */ human = sprintf("; del?       r%02u, %s", z, prettyxref_(xrefs[v])); break;
-
-      // 0x53: related to `const ref`
-      // 53 ?? xx yy: access field yy of xx (object-type field)
-      case 0x53: /* 83 */ human = sprintf("; getfield&  r%02u, r%02u, %s", z, x, prettyxref_(xrefs[y])); break;
-      case 0x54: /* 84 */ human = sprintf("; mkarray    r%02u", z); break;
-      case 0x55: /* 85 */ human = sprintf("; getindex&  r%02u, r%02u (primitive)", z, x); break;
-      case 0x56: /* 86 */ human = sprintf("; delarray   r%02u, r%02u", z, x); break;
-
-      case 0x59: /* 89 */ human = sprintf("; getindex&  r%02u, r%02u, r%02u (object type)", z, x, y); break;
-
-      case 0x5b: /* 91 */ human = sprintf("; float2int  r%02u, r%02u", z, x); break;
-      case 0x5c: /* 92 */ human = sprintf("; uint2enum? r%02u, r%02u", z, x); break;
-      case 0x5d: /* 93 */ human = sprintf("; int2uint?  r%02u, r%02u", z, x); break;
-      case 0x5e: /* 94 */ human = sprintf("; float2uint r%02u, r%02u", z, x); break;
-      case 0x5f: /* 95 */ human = sprintf("; int2float  r%02u, r%02u", z, x); break;
-      case 0x60: /* 96 */ human = sprintf("; uint2float r%02u, r%02u", z, x); break;
-
-      // References a class with unk1 $0001
-      case 0x61: /* 97 */ human = sprintf("; <<61>>     r%02u, %s", z, prettyxref_(xrefs[v])); break;
-      case 0x63: /* 99 */ human = sprintf("; <<63>>     r%02u, %08x", z, sd_u32[v/4]); break;
-    }
-
+  instrs.forEach(ins => {
     // Address
     var span = document.createElement('span')
     span.classList.add('address')
-    span.appendChild(document.createTextNode(sprintf('%4u', i/4)))
+    span.appendChild(document.createTextNode(sprintf('%4u', ins.index)))
     pre.appendChild(span)
 
     // Bytecode
@@ -187,14 +286,11 @@ function disassemble(method, xbin) {
       span.appendChild(document.createTextNode(sprintf(' %02x', v)))
       pre.appendChild(span)
     }
-    appendByte(op)
-    appendByte(z)
-    appendByte(x)
-    appendByte(y)
+    ins.raw.forEach(appendByte)
 
     // Human-readable part
-    pre.appendChild(document.createTextNode("  " + human + "\n"))
-  }
+    pre.appendChild(document.createTextNode("  ; " + ins.pretty + "\n"))
+  })
 
   return pre
 }

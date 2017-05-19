@@ -61,7 +61,8 @@ function renderView(cont, xbin, key) {
   // Main content
   switch (ent.type) {
     case 'method':
-      var pre = disassemble(ent, xbin)
+      var instrs = disassemble(ent, xbin)
+      var pre = render_disassembly(instrs)
       cont.appendChild(pre)
       break
 
