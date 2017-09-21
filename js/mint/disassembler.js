@@ -24,109 +24,109 @@
 //   too?  can you perform arithmetic on <enum>s?
 
 var instructionSpecs = {
-// op     mnemonic   params              write           read
-  0x01: ' mov        rz, true          | z:bool        |                   ',
-  0x02: ' mov        rz, false         | z:bool        |                   ',
-  0x03: ' ld         rz, data:v        | z:word        |                   ',
-  0x04: ' ld         rz, data_s:v      | z:string      |                   ', // FIXME: data_s is temporary since we aren't handling types yet
-  0x05: ' mov        rz, rx            | z:~x          | x                 ',
-  0x06: ' mov        rz, <res>         | z:~RES        | RES               ',
+// op     mnemonic    params              write           read
+  0x01: ' mov         rz, true          | z:bool        |                   ',
+  0x02: ' mov         rz, false         | z:bool        |                   ',
+  0x03: ' ld          rz, data:v        | z:word        |                   ',
+  0x04: ' ld          rz, data_s:v      | z:string      |                   ', // FIXME: data_s is temporary since we aren't handling types yet
+  0x05: ' mov         rz, rx            | z:~x          | x                 ',
+  0x06: ' mov         rz, <res>         | z:~RES        | RES               ',
 
   // 0e/0f? offset? (0e/0f for methods, 00 for static)
   // TODO: maybe don't read from ARGS here?
-  0x07: ' args1      [z] rx            | ARGS          | ARGS,x            ',
-  0x08: ' args2      [z] rx, ry        | ARGS          | ARGS,x,y          ',
-  0x09: ' args3      rz, rx, ry        | ARGS          | ARGS,z,x,y        ',
+  0x07: ' args1       [z] rx            | ARGS          | ARGS,x            ',
+  0x08: ' args2       [z] rx, ry        | ARGS          | ARGS,x,y          ',
+  0x09: ' args3       rz, rx, ry        | ARGS          | ARGS,z,x,y        ',
 
-  0x0a: ' args??     [z x]             | ARGS          | ARGS              ',
+  0x0a: ' args??      [z x]             | ARGS          | ARGS              ',
 
-  0x0c: ' getstatic  rz, field:v       | z:~v          |                   ',
-  0x0d: ' getderef   rz, rx            | z:~*x         | x                 ',
-  0x0e: ' getfield   rz, rx, field:y   | z:~&y         | x                 ',
+  0x0c: ' getstatic   rz, field:v       | z:~v          |                   ',
+  0x0d: ' getderef    rz, rx            | z:~*x         | x                 ',
+  0x0e: ' getfield    rz, rx, field:y   | z:~&y         | x                 ',
 
   // TODO: figure out if int or uint here?
-  0x0f: ' sizeof     rz, class:v       | z:uint        |                   ',
+  0x0f: ' sizeof      rz, class:v       | z:uint        |                   ',
 
-  0x12: ' putderef   rz, rx            |               | z,x               ',
-  0x13: ' putfield   rz, field:y, rx   |               | z,x               ',
-  0x14: ' putstatic  field:v, rz       |               | z                 ',
+  0x12: ' putderef    rz, rx            |               | z,x               ',
+  0x13: ' putfield    rz, field:y, rx   |               | z,x               ',
+  0x14: ' putstatic   field:v, rz       |               | z                 ',
 
-  0x15: ' addi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x16: ' subi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x17: ' muli       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x18: ' divi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x19: ' modi       rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x15: ' addi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x16: ' subi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x17: ' muli        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x18: ' divi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x19: ' modi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
 
-  0x1d: ' inci       rz                | z:~z          | z:u?int           ',
+  0x1d: ' inci        rz                | z:~z          | z:u?int           ',
 
-  0x1f: ' negi       rz, rx            | z:~x          | x:u?int           ',
+  0x1f: ' negi        rz, rx            | z:~x          | x:u?int           ',
 
-  0x20: ' addf       rz, rx, ry        | z:~x          | x:float,y:float   ',
-  0x21: ' subf       rz, rx, ry        | z:~x          | x:float,y:float   ',
-  0x22: ' mulf       rz, rx, ry        | z:~x          | x:float,y:float   ',
-  0x23: ' divf       rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x20: ' addf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x21: ' subf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x22: ' mulf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x23: ' divf        rz, rx, ry        | z:~x          | x:float,y:float   ',
 
-  0x26: ' negf?      rz, rx            | z:~x          | x                 ',
+  0x26: ' negf?       rz, rx            | z:~x          | x                 ',
 
-  0x27: ' lt int     rz, rx, ry        | z:bool        | x:int,y:int       ',
-  0x28: ' ?? uint?   rz, rx, ry        | z:bool        | x:uint,y:uint     ',
-  0x29: ' lt uint    rz, rx, ry        | z:bool        | x:uint,y:uint     ',
+  0x27: ' lt int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x28: ' ?? uint?    rz, rx, ry        | z:bool        | x:uint,y:uint     ',
+  0x29: ' lt uint     rz, rx, ry        | z:bool        | x:uint,y:uint     ',
 
-  0x2b: ' eq int     rz, rx, ry        | z:bool        | x:int,y:int       ',
-  0x2c: ' ?? int     rz, rx, ry        | z:bool        | x:int,y:int       ',
-  0x2d: ' lt float   rz, rx, ry        | z:bool        | x:float,y:float   ',
-  0x2e: ' ?? float   rz, rx, ry        | z:bool        | x:float,y:float   ',
+  0x2b: ' eq int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x2c: ' ?? int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x2d: ' lt float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+  0x2e: ' ?? float    rz, rx, ry        | z:bool        | x:float,y:float   ',
 
-  0x33: ' eq bool    rz, rx, ry        | z:bool        | x:bool,y:bool     ',
+  0x33: ' eq bool     rz, rx, ry        | z:bool        | x:bool,y:bool     ',
 
   // 3b zz xx ff: found with arrays, passed <index> and <array length>
   // TODO: int or uint? does this actually write to rz? no clue.
-  0x3b: ' capindex?  rz, rx            | z:int         | z:int,x:uint      ',
+  0x3b: ' capindex?   rz, rx            | z:int         | z:int,x:uint      ',
 
-  0x3d: ' bitor      rz, rx, ry        | z:uint        | x:uint,y:uint     ',
+  0x3d: ' bitor       rz, rx, ry        | z:uint        | x:uint,y:uint     ',
 
-  0x40: ' not        rz, rx            | z:bool        | x:bool            ',
+  0x40: ' not         rz, rx            | z:bool        | x:bool            ',
 
-  0x43: ' jmp        reloffset:v       | PC            |                   ',
-  0x44: ' jmp if     reloffset:v, rz   | PC            | z:bool            ',
-  0x45: ' jmp not    reloffset:v, rz   | PC            | z:bool            ',
+  0x43: ' jmp         reloffset:v       | PC            |                   ',
+  0x44: ' jmp if      reloffset:v, rz   | PC            | z:bool            ',
+  0x45: ' jmp not     reloffset:v, rz   | PC            | z:bool            ',
 
   // decl: z local, x param, y regoffset (lowest register used for temporaries)
-  0x46: ' decl       z, x, y           |               |                   ',
-  0x47: ' ret                          |               |                   ',
-  0x48: ' ret        ry                |               | z                 ',
-  0x49: ' call local method:v          | RES           | ARGS              ',
-  0x4a: ' call ???   method:v          | RES           | ARGS              ',
-  0x4b: ' call ext   method:v          | RES           | ARGS              ',
-  0x4c: ' jmp reg?   rz                | PC            | z:int             ',
+  0x46: ' decl        z, x, y           |               |                   ',
+  0x47: ' ret                           |               |                   ',
+  0x48: ' ret         ry                |               | z                 ',
+  0x49: ' call local  method:v          | RES           | ARGS              ',
+  0x4a: ' call ???    method:v          | RES           | ARGS              ',
+  0x4b: ' call ext    method:v          | RES           | ARGS              ',
+  0x4c: ' jmp reg?    rz                | PC            | z:int             ',
   // TODO: enforce z ~ x type constraint
-  0x4d: ' copy?      rz, rx, ry        |               | z,x,y:uint        ',
+  0x4d: ' copy?       rz, rx, ry        |               | z,x,y:uint        ',
 
-  0x4f: ' new        rz, class:v       | z:~v          |                   ',
-  0x50: ' new&       rz, class:v       | z:~&v         |                   ',
+  0x4f: ' new         rz, class:v       | z:~v          |                   ',
+  0x50: ' new&        rz, class:v       | z:~&v         |                   ',
   // TODO: is 0x51 even useful? should I have one primitive and one object-type register per regno?
-  0x51: ' del?       rz, class:v       |               |                   ',
+  0x51: ' del?        rz, class:v       |               |                   ',
 
   // 0x53: related to `const ref`
   // 53 ?? xx yy: access field yy of xx (object-type field)
-  0x53: ' getfield&  rz, rx, field:y   | z:~&v         | x                 ',
-  0x54: ' mkarray    rz                | z             | z:uint            ',
-  0x55: ' getindex&  rz, rx            | z:~&*x        | x                 ',
-  0x56: ' delarray   rz, rx            |               | z,x:uint          ',
+  0x53: ' getfield&   rz, rx, field:y   | z:~&v         | x                 ',
+  0x54: ' mkarray     rz                | z             | z:uint            ',
+  0x55: ' getindex&   rz, rx            | z:~&*x        | x                 ',
+  0x56: ' delarray    rz, rx            |               | z,x:uint          ',
 
   // TODO: I forget how this instruction works
-  0x59: ' getindex&  rz, rx, ry        | z             | x,y               ',
+  0x59: ' getindex&   rz, rx, ry        | z             | x,y               ',
 
-  0x5b: ' f2i        rz, rx            | z:int         | x:float           ',
-  0x5c: ' u2e?       rz, rx            | z             | x:uint            ',
-  0x5d: ' i2u?       rz, rx            | z:uint        | x:int             ',
-  0x5e: ' f2u        rz, rx            | z:uint        | x:float           ',
-  0x5f: ' i2f        rz, rx            | z:float       | x:int             ',
-  0x60: ' u2f        rz, rx            | z:float       | x:uint            ',
+  0x5b: ' f2i         rz, rx            | z:int         | x:float           ',
+  0x5c: ' u2e?        rz, rx            | z             | x:uint            ',
+  0x5d: ' i2u?        rz, rx            | z:uint        | x:int             ',
+  0x5e: ' f2u         rz, rx            | z:uint        | x:float           ',
+  0x5f: ' i2f         rz, rx            | z:float       | x:int             ',
+  0x60: ' u2f         rz, rx            | z:float       | x:uint            ',
 
   // References a class with unk1 $0001
-  0x61: ' <<61>>     rz, class:v       | z             |                   ',
-  0x63: ' <<63>>     rz, data:v        | z             |                   ',
+  0x61: ' <<61>>      rz, class:v       | z             |                   ',
+  0x63: ' <<63>>      rz, data:v        | z             |                   ',
 }
 
 // Parse mini-DSL for instruction specifications, turning each spec into a
@@ -185,7 +185,6 @@ function disassemble(method, xbin) {
     var res = ""
     for (var i = v; sd_u8[i] != 0 && i < sd_u8.length; i++) {
       if (sd_u8[i] >> 7) {
-        console.log(sd_u8.slice(i,i+8))
         // UTF-8
         var check = sd_u8[i] << 1, cp = sd_u8[i], bits = 6
         while ((check >> 7) & 1) {
@@ -237,14 +236,14 @@ function disassemble(method, xbin) {
                    case 'class':
                    case 'method':
                    case 'field':     return xrefs[value]
-                   case 'reloffset': return field == v? vi : value
+                   case 'reloffset': return field == 'v'? vi : value
                    default:          return '<?UNIMPLEMENTED?>'
                  }
                })
 
     instrs.push({ op:       op,
                   raw:      [op,z,x,y],
-                  mnemonic: spec.format.match(/^[^ ]+/)[0],
+                  mnemonic: spec.format.match(/^(?:[^ ]| [^ ])+/)[0],
                   index:    i/4,
                   method:   method,
                   spec:     spec,
@@ -259,8 +258,91 @@ function disassemble(method, xbin) {
   return instrs
 }
 
+//-- Flowgraph stuff ------------------------------------------------
+/*
+function shallowcopy(o) {
+  var res = Object.create(o.__proto__)
+  Object.getOwnPropertyNames(o).forEach(p =>
+      Object.defineProperty(res, p, Object.getOwnPropertyDescriptor(o, p)))
+  return res
+}
+*/
+
+// Construct flowgraph out of the given list of instructions
+function construct_cfg(instrs) {
+  var ins  = instrs.map(_ => ({})),
+      outs = instrs.map(_ => ({}))
+  // Add flow edge from instr `i` to instr `j` (indices)
+  function addEdge(i, j) {
+    outs[i][j] = true
+    ins[j][i] = true
+  }
+
+  for (let instr of instrs) {
+    const i = instr.index,
+          j = i + instr.args[0]
+    switch (instr.mnemonic) {
+      case 'ret':     /* end of function */             break
+      case 'jmp':     addEdge(i, j);                    break
+      case 'jmp if':  addEdge(i, j), addEdge(i, i + 1); break
+      case 'jmp not': addEdge(i, j), addEdge(i, i + 1); break
+      default:                       addEdge(i, i + 1); break
+    }
+  }
+
+  // Use sorted arrays for in- and out-sets
+  ins  = ins.map(o => Object.keys(o).map(Number).sort())
+  outs = outs.map(o => Object.keys(o).map(Number).sort())
+
+  return {ins, outs}
+}
+
+// TODO: this should be broken into several parts and renamed
+function render_disassembly(instrs_) {
+  function classOf(v) {
+    return v == 0x00? 'zero'
+         : v == 0xFF? 'all'
+         : v  < 0x20? 'low'
+         : v  < 0x7F? 'print'
+         :            'high'
+  }
+
+  let cfg = construct_cfg(instrs_)
+  let instrs = instrs_.map((instr, i) => Object.assign({cfg: cfg[i]}, instr))
+
+  const pre = document.createElement('pre')
+  pre.classList.add('disasm')
+
+  for (let instr of instrs) {
+    const i = instr.index
+
+    // Address
+    var span = document.createElement('span')
+    span.classList.add('address')
+    span.appendChild(document.createTextNode(sprintf('%4u ', i)))
+    pre.appendChild(span)
+
+    // Bytecode
+    for (let byte of instr.raw) {
+      var span = document.createElement('span')
+      span.classList.add(classOf(byte))
+      span.appendChild(document.createTextNode(sprintf(' %02x', byte)))
+      pre.appendChild(span)
+    }
+
+    // FIXME: CFG in- and out-sets
+    pre.appendChild(document.createTextNode(sprintf(' %10s %10s', cfg.ins[i], cfg.outs[i])))
+
+    // Human-readable part
+    pre.appendChild(document.createTextNode("  ; " + instr.pretty + "\n"))
+  }
+
+  return pre
+}
+
 //-- Disasm renderer ------------------------------------------------
-function render_disassembly(instrs) {
+// TODO: rename to render_disassembly
+function render_disassembly_plain(instrs) {
   var pre = document.createElement('pre')
   pre.classList.add('disasm')
 
@@ -276,7 +358,7 @@ function render_disassembly(instrs) {
     // Address
     var span = document.createElement('span')
     span.classList.add('address')
-    span.appendChild(document.createTextNode(sprintf('%4u', ins.index)))
+    span.appendChild(document.createTextNode(sprintf('%4u ', ins.index)))
     pre.appendChild(span)
 
     // Bytecode
