@@ -94,7 +94,7 @@ var instructionSpecs = {
   // decl: z local, x param, y regoffset (lowest register used for temporaries)
   0x46: ' decl        z, x, y           |               |                   ',
   0x47: ' ret                           |               |                   ',
-  0x48: ' ret         ry                |               | z                 ',
+  0x48: ' ret         ry                |               | y                 ',
   0x49: ' call local  method:v          | RES           | ARGS              ',
   0x4a: ' call ???    method:v          | RES           | ARGS              ',
   0x4b: ' call ext    method:v          | RES           | ARGS              ',
@@ -134,6 +134,7 @@ var instructionSpecs = {
 for (var k in instructionSpecs) {
   var [pretty, write, read] = instructionSpecs[k].split("|").map(s => s.trim())
 
+  // Parse pretty (TODO: rewrite, make prettier)
   var params = []
   pretty = pretty.replace(/\b(r[xyz]|(?:\w+:)?[xyzv])\b/g, function (spec) {
     var field = spec,
@@ -156,9 +157,15 @@ for (var k in instructionSpecs) {
            }[type]
   })
 
-  // TODO: parse write/read, with types
-  instructionSpecs[k] = { format: pretty,
-                          params: params, }
+  // Parse read/write (aka USE and DEF)
+  // TODO: make use of type data
+  const writeset = write.split(",").map(s => s.split(":")[0]).filter(Boolean),
+        readset  = read.split(",").map(s => s.split(":")[0]).filter(Boolean)
+
+  instructionSpecs[k] = { format:   pretty,
+                          params:   params,
+                          writeset: writeset,
+                          readset:  readset }
 }
 
 
@@ -223,9 +230,9 @@ function disassemble(method, xbin) {
               : gameId == 8? op >= 0x4c? op - 1 : op  // Fighters
               :              op
 
-    // Decode opcode
     var spec = instructionSpecs[op]
 
+    // Fetch concrete argument values (look up in cpool/xrefs etc)
     var args = spec.params.map(({type, field}) => {
                  var value = {x,y,z,v}[field]
                  switch (type) {
@@ -241,18 +248,25 @@ function disassemble(method, xbin) {
                  }
                })
 
-    instrs.push({ op:       op,
-                  raw:      [op,z,x,y],
-                  mnemonic: spec.format.match(/^(?:[^ ]| [^ ])+/)[0],
-                  index:    i/4,
-                  method:   method,
-                  spec:     spec,
-                  args:     args,
-                  pretty:   sprintf.apply(null,
-                              [spec.format].concat(args.map((v,i) =>
-                                ['class','method','field'].indexOf(spec.params[i].type) >= 0?
-                                  prettyxref(v,method,xbin) : v)))
-                })
+    // read and written registers
+    let readset  = spec.readset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r),
+        writeset = spec.writeset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r)
+
+    // Resulting parsed instruction
+    instrs.push({
+      op,
+      raw:      [op,z,x,y],
+      mnemonic: spec.format.match(/^(?:[^ ]| [^ ])+/)[0],
+      index:    i/4,
+      method,
+      spec,
+      args,
+      readset,  // Aka USE
+      writeset, // Aka DEF
+      pretty:   sprintf.apply(null, [spec.format].concat(args.map((v,i) =>
+                    ['class','method','field'].includes(spec.params[i].type)?
+                       prettyxref(v,method,xbin) : v)))
+    })
   }
 
   return instrs
@@ -297,6 +311,43 @@ function construct_cfg(instrs) {
   return {ins, outs}
 }
 
+// Liveness analysis
+function analyse_liveness(instrs_, cfg) {
+  const instrs = instrs_.slice()
+  var ins  = instrs.map(_ => ({})),
+      outs = instrs.map(_ => ({}))
+
+  // FIXME: Proper iteration order
+
+  let hasChanged = true
+  while (hasChanged) {
+    hasChanged = false
+
+    for (let instr of instrs.reverse()) {
+      const i = instr.index
+      let size
+
+      // out[i] = \union_{s ∈ succ(i)} in[s]
+      size = Object.keys(cfg.outs[i]).length
+      for (let s of cfg.outs[i]) {
+        for (let r in ins[s]) outs[i][r] = true
+      }
+      if (Object.keys(cfg.outs[i]).length != size) hasChanged = true
+
+      // in[i] = use[i] ∪ (out[i] - def[i])
+      size = Object.keys(cfg.ins[i]).length
+      let subset = {}
+      for (let r in outs[i]) subset[r] = true
+      for (let r of instr.writeset) delete subset[r]
+      for (let r of instr.readset) ins[i][r] = true
+      for (let r in subset) ins[i][r] = true
+      if (Object.keys(cfg.ins[i]).length != size) hasChanged = true
+    }
+  }
+
+  return {ins, outs}
+}
+
 // TODO: this should be broken into several parts and renamed
 function render_disassembly(instrs_) {
   function classOf(v) {
@@ -308,7 +359,11 @@ function render_disassembly(instrs_) {
   }
 
   let cfg = construct_cfg(instrs_)
-  let instrs = instrs_.map((instr, i) => Object.assign({cfg: cfg[i]}, instr))
+  let liveness = analyse_liveness(instrs_, cfg)
+  let instrs = instrs_.map((instr, i) => Object.assign({
+    cfg:      { ins: cfg.ins[i],      outs: cfg.outs[i]      },
+    liveness: { ins: liveness.ins[i], outs: liveness.outs[i] },
+  }, instr))
 
   const pre = document.createElement('pre')
   pre.classList.add('disasm')
@@ -331,7 +386,13 @@ function render_disassembly(instrs_) {
     }
 
     // FIXME: CFG in- and out-sets
-    pre.appendChild(document.createTextNode(sprintf(' %10s %10s', cfg.ins[i], cfg.outs[i])))
+    pre.appendChild(document.createTextNode(sprintf(' %8s %6s', instr.cfg.ins, instr.cfg.outs)))
+
+    // FIXME: USE/DEF, IN/OUT
+    pre.appendChild(document.createTextNode(sprintf(' %8s %14s', instr.writeset, instr.readset)))
+    pre.appendChild(document.createTextNode(sprintf(' %24s %24s',
+        Object.keys(instr.liveness.ins).sort(),
+        Object.keys(instr.liveness.outs).sort())))
 
     // Human-readable part
     pre.appendChild(document.createTextNode("  ; " + instr.pretty + "\n"))
