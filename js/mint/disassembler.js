@@ -301,6 +301,39 @@ function construct_cfg(instrs) {
   return {ins, outs}
 }
 
+// Construct basic blocks out of flowgraph-annotated instructions
+function construct_blocks(instrs) {
+  let blocks = [], start = 0, indexMap = {}
+
+  function pushBlock(end) {
+    const i = blocks.length
+    if (start != end) {
+      const block = { index: i, instrs: instrs.slice(start, end) }
+      for (let instr of block.instrs) indexMap[instr.index] = i
+      blocks.push(block)
+    }
+    start = end
+  }
+
+  // Split into blocks
+  for (let instr of instrs) {
+    const i           = instr.index,
+          {ins, outs} = instr.cfg
+    if (ins.length > 1) pushBlock(i)
+    if (!(outs.length == 1 && outs[0] == i + 1)) pushBlock(i + 1)
+  }
+  pushBlock(instrs.length)
+
+  // Remap CFG from instructions to blocks
+  for (let block of blocks) {
+    const end = block.instrs.length - 1
+    block.pred = block.instrs[  0].cfg.ins.map(i => indexMap[i])
+    block.succ = block.instrs[end].cfg.outs.map(i => indexMap[i])
+  }
+
+  return blocks
+}
+
 // Liveness analysis
 function analyse_liveness(instrs_, cfg) {
   const instrs = instrs_.slice()
@@ -344,7 +377,7 @@ function render_disassembly(instrs_) {
   const pre = document.createElement('pre')
   pre.classList.add('disasm')
 
-  for (let instr of instrs) {
+  function printInstruction(instr) {
     const i = instr.index
 
     // Address
@@ -372,6 +405,20 @@ function render_disassembly(instrs_) {
 
     // Human-readable part
     pre.appendChild(document.createTextNode("  ; " + instr.pretty + "\n"))
+  }
+
+  const blocks = construct_blocks(instrs)
+
+  // Print instructions
+  for (let block of blocks) {
+    pre.appendChild(document.createTextNode(sprintf(
+        "BasicBlock %d (%s#%s) {\n", block.index,
+            block.pred.length > 0? sprintf("%s → ", block.pred) : "",
+            block.succ.length > 0? sprintf(" → %s", block.succ) : "")));
+    for (let instr of block.instrs) {
+      printInstruction(instr)
+    }
+    pre.appendChild(document.createTextNode("}\n"));
   }
 
   return pre
