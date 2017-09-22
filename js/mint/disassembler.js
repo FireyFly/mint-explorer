@@ -23,7 +23,7 @@
 // * When are <enum>s akin to integers?  only for ld purposes, or otherwise
 //   too?  can you perform arithmetic on <enum>s?
 
-var instructionSpecs = {
+const instructionSpecs = {
 // op     mnemonic    params              write           read
   0x01: ' mov         rz, true          | z:bool        |                   ',
   0x02: ' mov         rz, false         | z:bool        |                   ',
@@ -131,30 +131,17 @@ var instructionSpecs = {
 
 // Parse mini-DSL for instruction specifications, turning each spec into a
 // useful structure to be used for parsing each bytecode instruction.
-for (var k in instructionSpecs) {
-  var [pretty, write, read] = instructionSpecs[k].split("|").map(s => s.trim())
+for (let k in instructionSpecs) {
+  const [pretty, write, read] = instructionSpecs[k].split("|").map(s => s.trim())
+  const paramPattern = /\b(r[xyz]|(?:\w+:)?[xyzv])\b/g
 
-  // Parse pretty (TODO: rewrite, make prettier)
-  var params = []
-  pretty = pretty.replace(/\b(r[xyz]|(?:\w+:)?[xyzv])\b/g, function (spec) {
-    var field = spec,
-        type  = 'imm'
+  // Parse parameters from pretty
+  const params = (pretty.match(paramPattern) || []).map(spec => {
     // Handle `type:v` style syntax
-    if (spec.indexOf(':') >= 0) [type,field] = spec.split(':')
+    let [type, field] = spec.includes(':')? spec.split(':') : ['imm', spec]
     // Handle r[xyz]
     if (field[0] == 'r') type = 'reg', field = field.slice(1)
-
-    params.push({ type:type, field:field })
-
-    return { 'imm':       '%02x',   // immediate
-             'reg':       'r%02u',  // register
-             'data':      '0x%08x', // static data (32-bit or string) (TODO: type?)
-             'data_s':    '"%s"',   // static data (string) (FIXME: remove)
-             'class':     '%s',     // xref: class target
-             'method':    '%s',     // xref: method target
-             'field':     '%s',     // xref: field target (static or member)
-             'reloffset': '%d',     // relative jmp offsets (signed)
-           }[type]
+    return {type, field}
   })
 
   // Parse read/write (aka USE and DEF)
@@ -162,151 +149,154 @@ for (var k in instructionSpecs) {
   const writeset = write.split(",").map(s => s.split(":")[0]).filter(Boolean),
         readset  = read.split(",").map(s => s.split(":")[0]).filter(Boolean)
 
-  instructionSpecs[k] = { format:   pretty,
-                          params:   params,
-                          writeset: writeset,
-                          readset:  readset }
+  // Format string to use in the prettyprinter
+  let i = 0
+  const format = pretty.replace(paramPattern, _ =>
+      ({ 'imm':       '%02x',   // immediate
+         'reg':       'r%02u',  // register
+         'data':      '0x%08x', // static data (32-bit or string) (TODO: type?)
+         'data_s':    '"%s"',   // static data (string) (FIXME: remove)
+         'class':     '%s',     // xref: class target
+         'method':    '%s',     // xref: method target
+         'field':     '%s',     // xref: field target (static or member)
+         'reloffset': '%d',     // relative jmp offsets (signed)
+       }[params[i++].type]))
+
+  instructionSpecs[k] = {format, params, writeset, readset}
 }
 
 
 //-- Disassembler ---------------------------------------------------
 function prettyxref(xref, ent, xbin) {
-  var target = xbin.by_hash[xref]
+  const target = xbin.by_hash[xref]
   if (target == null) return sprintf("#[%08x]", xref)
   return target.type == 'class'?  target.name
        : (target.parent == ent.parent? "" : target.parent.name + ".") + target.name
 }
 
-function disassemble(method, xbin) {
-  var u8 = new Uint8Array(method.bytecode)
-
-  var file  = method.parent.parent,
-      xrefs = file.xrefs
-  var sdata = file.static_data,
-      sd_u8  = new Uint8Array(sdata),
-      sd_sz  = sdata.byteLength - sdata.byteLength%4,
-      sd_u32 = new Uint32Array(sdata.slice(0, sd_sz)),
-      sd_f32 = new Float32Array(sdata.slice(0, sd_sz))
-
-  function readstring(v) {
-    var res = ""
-    for (var i = v; sd_u8[i] != 0 && i < sd_u8.length; i++) {
-      if (sd_u8[i] >> 7) {
-        // UTF-8
-        var check = sd_u8[i] << 1, cp = sd_u8[i], bits = 6
-        while ((check >> 7) & 1) {
-          cp = cp << 6 | (sd_u8[++i] & 0x3F)
-          check <<= 1
-          bits += 5
-        }
-        cp = cp & ((1 << bits) - 1)
-        res += String.fromCharCode(cp)
-
-      } else {
-        // ASCII
-        res += String.fromCharCode(sd_u8[i])
+function readstring(u8, v) {
+  const res = []
+  for (let i = v; u8[i] != 0 && i < u8.length; i++) {
+    if (u8[i] >> 7) {
+      // UTF-8
+      let check = u8[i] << 1,
+          cp    = u8[i],
+          bits  = 6
+      while ((check >> 7) & 1) {
+        cp = cp << 6 | (u8[++i] & 0x3F)
+        check <<= 1
+        bits += 5
       }
-    }
-    return res
-  }
+      cp = cp & ((1 << bits) - 1)
+      res.push(cp)
 
-  var instrs = []
-  for (var i = 0; i < u8.length; i += 4) {
+    } else {
+      // ASCII
+      res.push(u8[i])
+    }
+  }
+  return String.fromCharCode(...res)
+}
+
+function groupN(arr, n) {
+  let res = []
+  for (let i = 0; i < arr.length; i += n) {
+    res.push(arr.slice(i, i+n))
+  }
+  return res
+}
+
+function disassemble(method, xbin) {
+  const u8 = new Uint8Array(method.bytecode)
+
+  const file  = method.parent.parent,
+        xrefs = file.xrefs
+  const sdata = file.static_data,
+        sd_u8  = new Uint8Array(sdata),
+        sd_sz  = sdata.byteLength - sdata.byteLength%4,
+        sd_u32 = new Uint32Array(sdata.slice(0, sd_sz))
+
+  const instrs = groupN(u8, 4).map(([op, z, x, y], index) => {
     // Fields (each char a nibble):
     //   oozzxxyy
     //       vvvv
-    var op = u8[i]
-    var z  = u8[i+1], x = u8[i+2], y = u8[i+3]
-    var v  = u8[i+3] << 8 | u8[i+2],
-        vi = v >= 0x8000? -((v ^ 0xffff) + 1) : v
+    const v   = y << 8 | x,
+          vi  = v >= 0x8000? -((v ^ 0xffff) + 1) : v,
+          raw = [op,z,x,y]
 
     // FIXME: ugly hack to be able to load Fighters.  The proper solution
     // would probably involve building an array of instruction specs, and
     // conditionally adding certain instructions depending on `gameId`. (would
     // need to check which opcodes are which instructions in other versions of
     // the engine, too.)
-    var gameId = xbin.tree.unk3
-    var opIdx = gameId == 5? op                       // K3D
-              : gameId == 8? op >= 0x4c? op - 1 : op  // Fighters
-              :              op
+    const gameId = xbin.tree.unk3
+    const opIdx = gameId == 5? op                       // K3D
+                : gameId == 8? op >= 0x4c? op - 1 : op  // Fighters
+                :              op
 
-    var spec = instructionSpecs[op]
+    const spec = instructionSpecs[opIdx]
+    const mnemonic = spec.format.match(/^(?:[^ ]| [^ ])+/)[0]
 
     // Fetch concrete argument values (look up in cpool/xrefs etc)
-    var args = spec.params.map(({type, field}) => {
-                 var value = {x,y,z,v}[field]
-                 switch (type) {
-                   case 'imm':
-                   case 'reg':       return value
-                   case 'data':      return sd_u32[value/4]
-                   case 'data_s':    return readstring(value)
-                   case 'class':
-                   case 'method':
-                   case 'field':     return xrefs[value]
-                   case 'reloffset': return field == 'v'? vi : value
-                   default:          return '<?UNIMPLEMENTED?>'
-                 }
-               })
+    const args = spec.params.map(({type, field}) => {
+                   const value = {x,y,z,v}[field]
+                   switch (type) {
+                     case 'imm':
+                     case 'reg':       return value
+                     case 'data':      return sd_u32[value/4]
+                     case 'data_s':    return readstring(sd_u8, value)
+                     case 'class':
+                     case 'method':
+                     case 'field':     return xrefs[value]
+                     case 'reloffset': return field == 'v'? vi : value
+                     default:          return '<?UNIMPLEMENTED?>'
+                   }
+                 })
 
-    // read and written registers
-    let readset  = spec.readset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r),
-        writeset = spec.writeset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r)
+    // Register sets (DEF/USE)
+    const readset  = spec.readset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r),
+          writeset = spec.writeset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r)
+
+    // Prettyprint instruction
+    const pretty = sprintf(spec.format, ...args.map((v,i) =>
+                     ['class','method','field'].includes(spec.params[i].type)?
+                        prettyxref(v,method,xbin) : v))
 
     // Resulting parsed instruction
-    instrs.push({
-      op,
-      raw:      [op,z,x,y],
-      mnemonic: spec.format.match(/^(?:[^ ]| [^ ])+/)[0],
-      index:    i/4,
-      method,
-      spec,
-      args,
-      readset,  // Aka USE
-      writeset, // Aka DEF
-      pretty:   sprintf.apply(null, [spec.format].concat(args.map((v,i) =>
-                    ['class','method','field'].includes(spec.params[i].type)?
-                       prettyxref(v,method,xbin) : v)))
-    })
-  }
+    return {op, raw, index,
+            mnemonic, pretty,
+            spec, method,
+            args,
+            readset, writeset }
+  })
 
   return instrs
 }
 
 //-- Flowgraph stuff ------------------------------------------------
-/*
-function shallowcopy(o) {
-  var res = Object.create(o.__proto__)
-  Object.getOwnPropertyNames(o).forEach(p =>
-      Object.defineProperty(res, p, Object.getOwnPropertyDescriptor(o, p)))
-  return res
-}
-*/
-
 // Construct flowgraph out of the given list of instructions
 function construct_cfg(instrs) {
-  var ins  = instrs.map(_ => ({})),
+  let ins  = instrs.map(_ => ({})),
       outs = instrs.map(_ => ({}))
   // Add flow edge from instr `i` to instr `j` (indices)
-  function addEdge(i, j) {
-    outs[i][j] = true
-    ins[j][i] = true
-  }
+  const addEdge = (i,j) => { outs[i][j] = true; ins[j][i] = true }
 
   for (let instr of instrs) {
     const i = instr.index,
-          j = i + instr.args[0]
+          v = instr.args[0]
     switch (instr.mnemonic) {
-      case 'ret':     /* end of function */             break
-      case 'jmp':     addEdge(i, j);                    break
-      case 'jmp if':  addEdge(i, j), addEdge(i, i + 1); break
-      case 'jmp not': addEdge(i, j), addEdge(i, i + 1); break
-      default:                       addEdge(i, i + 1); break
+      case 'ret':     /* end of function */                 break
+      case 'jmp':     addEdge(i, i + v);                    break
+      case 'jmp if':  addEdge(i, i + v), addEdge(i, i + 1); break
+      case 'jmp not': addEdge(i, i + v), addEdge(i, i + 1); break
+      default:                           addEdge(i, i + 1); break
     }
   }
 
   // Use sorted arrays for in- and out-sets
-  ins  = ins.map(o => Object.keys(o).map(Number).sort())
-  outs = outs.map(o => Object.keys(o).map(Number).sort())
+  const cmp = (a,b) => a - b
+  ins  = ins.map(o => Object.keys(o).map(Number).sort(cmp))
+  outs = outs.map(o => Object.keys(o).map(Number).sort(cmp))
 
   return {ins, outs}
 }
@@ -314,53 +304,39 @@ function construct_cfg(instrs) {
 // Liveness analysis
 function analyse_liveness(instrs_, cfg) {
   const instrs = instrs_.slice()
-  var ins  = instrs.map(_ => ({})),
+  let ins  = instrs.map(_ => ({})),
       outs = instrs.map(_ => ({}))
 
   // FIXME: Proper iteration order
-
-  let hasChanged = true
-  while (hasChanged) {
-    hasChanged = false
-
     for (let instr of instrs.reverse()) {
       const i = instr.index
-      let size
 
       // out[i] = \union_{s ∈ succ(i)} in[s]
-      size = Object.keys(cfg.outs[i]).length
       for (let s of cfg.outs[i]) {
         for (let r in ins[s]) outs[i][r] = true
       }
-      if (Object.keys(cfg.outs[i]).length != size) hasChanged = true
 
       // in[i] = use[i] ∪ (out[i] - def[i])
-      size = Object.keys(cfg.ins[i]).length
       let subset = {}
       for (let r in outs[i]) subset[r] = true
       for (let r of instr.writeset) delete subset[r]
       for (let r of instr.readset) ins[i][r] = true
       for (let r in subset) ins[i][r] = true
-      if (Object.keys(cfg.ins[i]).length != size) hasChanged = true
     }
-  }
 
   return {ins, outs}
 }
 
-// TODO: this should be broken into several parts and renamed
 function render_disassembly(instrs_) {
-  function classOf(v) {
-    return v == 0x00? 'zero'
-         : v == 0xFF? 'all'
-         : v  < 0x20? 'low'
-         : v  < 0x7F? 'print'
-         :            'high'
-  }
+  const classOf = v => v == 0x00? 'zero'
+                     : v == 0xFF? 'all'
+                     : v  < 0x20? 'low'
+                     : v  < 0x7F? 'print'
+                     :            'high'
 
-  let cfg = construct_cfg(instrs_)
-  let liveness = analyse_liveness(instrs_, cfg)
-  let instrs = instrs_.map((instr, i) => Object.assign({
+  const cfg = construct_cfg(instrs_)
+  const liveness = analyse_liveness(instrs_, cfg)
+  const instrs = instrs_.map((instr, i) => Object.assign({
     cfg:      { ins: cfg.ins[i],      outs: cfg.outs[i]      },
     liveness: { ins: liveness.ins[i], outs: liveness.outs[i] },
   }, instr))
@@ -372,14 +348,14 @@ function render_disassembly(instrs_) {
     const i = instr.index
 
     // Address
-    var span = document.createElement('span')
+    const span = document.createElement('span')
     span.classList.add('address')
     span.appendChild(document.createTextNode(sprintf('%4u ', i)))
     pre.appendChild(span)
 
     // Bytecode
     for (let byte of instr.raw) {
-      var span = document.createElement('span')
+      const span = document.createElement('span')
       span.classList.add(classOf(byte))
       span.appendChild(document.createTextNode(sprintf(' %02x', byte)))
       pre.appendChild(span)
@@ -404,36 +380,35 @@ function render_disassembly(instrs_) {
 //-- Disasm renderer ------------------------------------------------
 // TODO: rename to render_disassembly
 function render_disassembly_plain(instrs) {
-  var pre = document.createElement('pre')
+  const classOf = v => v == 0x00? 'zero'
+                     : v == 0xFF? 'all'
+                     : v  < 0x20? 'low'
+                     : v  < 0x7F? 'print'
+                     :            'high'
+
+  const pre = document.createElement('pre')
   pre.classList.add('disasm')
 
-  function classOf(v) {
-    return v == 0x00? 'zero'
-         : v == 0xFF? 'all'
-         : v  < 0x20? 'low'
-         : v  < 0x7F? 'print'
-         :            'high'
-  }
+  for (let instr of instrs) {
+    const i = instr.index
 
-  instrs.forEach(ins => {
     // Address
-    var span = document.createElement('span')
+    const span = document.createElement('span')
     span.classList.add('address')
-    span.appendChild(document.createTextNode(sprintf('%4u ', ins.index)))
+    span.appendChild(document.createTextNode(sprintf('%4u ', instr.index)))
     pre.appendChild(span)
 
     // Bytecode
-    function appendByte(v) {
-      var span = document.createElement('span')
-      span.classList.add(classOf(v))
-      span.appendChild(document.createTextNode(sprintf(' %02x', v)))
+    for (let byte of instr.raw) {
+      const span = document.createElement('span')
+      span.classList.add(classOf(byte))
+      span.appendChild(document.createTextNode(sprintf(' %02x', byte)))
       pre.appendChild(span)
     }
-    ins.raw.forEach(appendByte)
 
     // Human-readable part
-    pre.appendChild(document.createTextNode("  ; " + ins.pretty + "\n"))
-  })
+    pre.appendChild(document.createTextNode("  ; " + instr.pretty + "\n"))
+  }
 
   return pre
 }
