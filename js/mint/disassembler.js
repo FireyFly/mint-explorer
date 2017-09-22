@@ -276,10 +276,10 @@ function disassemble(method, xbin) {
 //-- Flowgraph stuff ------------------------------------------------
 // Construct flowgraph out of the given list of instructions
 function construct_cfg(instrs) {
-  let ins  = instrs.map(_ => ({})),
-      outs = instrs.map(_ => ({}))
+  let pred = instrs.map(_ => ({})),
+      succ = instrs.map(_ => ({}))
   // Add flow edge from instr `i` to instr `j` (indices)
-  const addEdge = (i,j) => { outs[i][j] = true; ins[j][i] = true }
+  const addEdge = (i,j) => { succ[i][j] = true; pred[j][i] = true }
 
   for (let instr of instrs) {
     const i = instr.index,
@@ -295,10 +295,10 @@ function construct_cfg(instrs) {
 
   // Use sorted arrays for in- and out-sets
   const cmp = (a,b) => a - b
-  ins  = ins.map(o => Object.keys(o).map(Number).sort(cmp))
-  outs = outs.map(o => Object.keys(o).map(Number).sort(cmp))
+  pred = pred.map(o => Object.keys(o).map(Number).sort(cmp))
+  succ = succ.map(o => Object.keys(o).map(Number).sort(cmp))
 
-  return {ins, outs}
+  return {pred, succ}
 }
 
 // Construct basic blocks out of flowgraph-annotated instructions
@@ -316,19 +316,17 @@ function construct_blocks(instrs) {
   }
 
   // Split into blocks
-  for (let instr of instrs) {
-    const i           = instr.index,
-          {ins, outs} = instr.cfg
-    if (ins.length > 1) pushBlock(i)
-    if (!(outs.length == 1 && outs[0] == i + 1)) pushBlock(i + 1)
+  for (let {index,pred,succ} of instrs) {
+    if (pred.length > 1) pushBlock(index)
+    if (!(succ.length == 1 && succ[0] == index + 1)) pushBlock(index + 1)
   }
   pushBlock(instrs.length)
 
   // Remap CFG from instructions to blocks
   for (let block of blocks) {
     const end = block.instrs.length - 1
-    block.pred = block.instrs[  0].cfg.ins.map(i => indexMap[i])
-    block.succ = block.instrs[end].cfg.outs.map(i => indexMap[i])
+    block.pred = block.instrs[  0].pred.map(i => indexMap[i])
+    block.succ = block.instrs[end].succ.map(i => indexMap[i])
   }
 
   return blocks
@@ -345,7 +343,7 @@ function analyse_liveness(instrs_, cfg) {
       const i = instr.index
 
       // out[i] = \union_{s ∈ succ(i)} in[s]
-      for (let s of cfg.outs[i]) {
+      for (let s of cfg.succ[i]) {
         for (let r in ins[s]) outs[i][r] = true
       }
 
@@ -357,7 +355,7 @@ function analyse_liveness(instrs_, cfg) {
       for (let r in subset) ins[i][r] = true
     }
 
-  return {ins, outs}
+  return {insets: ins, outsets: outs}
 }
 
 function render_disassembly(instrs_) {
@@ -370,8 +368,10 @@ function render_disassembly(instrs_) {
   const cfg = construct_cfg(instrs_)
   const liveness = analyse_liveness(instrs_, cfg)
   const instrs = instrs_.map((instr, i) => Object.assign({
-    cfg:      { ins: cfg.ins[i],      outs: cfg.outs[i]      },
-    liveness: { ins: liveness.ins[i], outs: liveness.outs[i] },
+    pred:   cfg.pred[i],
+    succ:   cfg.succ[i],
+    inset:  liveness.insets[i],
+    outset: liveness.outsets[i],
   }, instr))
 
   const pre = document.createElement('pre')
@@ -395,13 +395,13 @@ function render_disassembly(instrs_) {
     }
 
     // FIXME: CFG in- and out-sets
-    pre.appendChild(document.createTextNode(sprintf(' %8s %6s', instr.cfg.ins, instr.cfg.outs)))
+ // pre.appendChild(document.createTextNode(sprintf(' %8s %6s', instr.pred, instr.succ)))
 
     // FIXME: USE/DEF, IN/OUT
     pre.appendChild(document.createTextNode(sprintf(' %8s %14s', instr.writeset, instr.readset)))
-    pre.appendChild(document.createTextNode(sprintf(' %24s %24s',
-        Object.keys(instr.liveness.ins).sort(),
-        Object.keys(instr.liveness.outs).sort())))
+ // pre.appendChild(document.createTextNode(sprintf(' %24s %24s',
+ //     Object.keys(instr.inset).sort(),
+ //     Object.keys(instr.outset).sort())))
 
     // Human-readable part
     pre.appendChild(document.createTextNode("  ; " + instr.pretty + "\n"))
