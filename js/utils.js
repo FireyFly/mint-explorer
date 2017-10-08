@@ -3,18 +3,18 @@ export function assert(cond, msg) {
   if (!cond) throw new Error(msg || "Assertion failed.")
 }
 
-export function sprintf(fmt /*...*/) {
-  var args = arguments,
-      i    = 1
-
-  return fmt.replace(/%(-?)(0?)(\d+|)([sbduxfj]|ip|mac)/g, function (_, align, padChar, padN, spec) {
-    var str = toString(args[i++], spec),
-        pad = Array(Math.max(padN - str.length + 1, 0)).join(padChar || ' ')
-    return align != '-'? pad + str : str + pad
-  })
+export function sprintf(fmt, ...args) {
+  let i = 0
+  return fmt.replace(/%(-?)(0?)(\d+|)([sbduxfj]|ip|mac)/g,
+                     (_, align, padChar, padN, spec) => {
+                       const str = toString(args[i++], spec),
+                             pad = Array(Math.max(padN - str.length + 1, 0)).join(padChar || ' ')
+                       return align != '-'? pad + str : str + pad
+                     })
 
   function toString(value, spec) {
-    var int = Math.floor(Number(value))
+    const pad2hex = n => (n < 16? '0' : '') + n.toString(16)
+    const int = Math.floor(Number(value))
     switch (spec) {
       case 's':   return String(value)
       case 'd':
@@ -36,43 +36,35 @@ export function sprintf(fmt /*...*/) {
       default:
         throw new Error("sprintf: unimplemented spec: '" + spec + "'.")
     }
-
-    function pad2hex(n) {
-      return (n < 16? '0' : '') + n.toString(16)
-    }
   }
 }
-export function printf(/*...*/) {
-  console.log(sprintf.apply(null, arguments))
+export function printf(...args) {
+  console.log(sprintf(...args))
 }
 
 
 //-- Node -----------------------------------------------------------
-export function Node(props) {
-  if (props == null) props = {}
-  this.ch = {}
-  this.children = []
-  for (var k in props) {
-    this[k] = props[k]
+export class Node {
+  constructor(props = {}) {
+    this.ch = {}
+    this.children = []
+    Object.assign(this, props)
   }
-}
-Node.prototype.add = function (name, props) {
-  if (!(name in this.ch)) {
-    this.ch[name] = new Node(props)
-    this.children.push(name)
-  }
-  return this.ch[name]
-}
 
-Node.prototype.addPath = function (path, props) {
-  var curr = this
-  path.forEach(function (pair) {
-    var type = pair[0],
-        name = pair[1]
-    curr.add(name, { type: type, name: name })
-    curr = curr.ch[name]
-  })
-  for (var k in props) {
-    curr[k] = props[k]
+  add(name, props) {
+    if (!(name in this.ch)) {
+      this.ch[name] = new Node(props)
+      this.children.push(name)
+    }
+    return this.ch[name]
+  }
+
+  addPath(path, props) {
+    var curr = this
+    for (let [type, name] of path) {
+      curr.add(name, { type: type, name: name })
+      curr = curr.ch[name]
+    }
+    Object.assign(curr, props)
   }
 }
