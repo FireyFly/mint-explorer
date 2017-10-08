@@ -1,46 +1,44 @@
-import { tick, tock, sprintf } from './utils.js'
+import { tick, tock, sprintf, asyncRead } from './utils.js'
 import { parseXbin } from './mint/loader.js'
 import { renderView } from './components/MintView.js'
 import { renderTree, expandInit } from './components/Tree.js'
 
-void function () {
-  var xbin = null
+let xbin = null
 
-  function treeOnClick() {
-    var key  = this.dataset['key'],
-        cont = document.getElementById('view-cont')
-    renderView(cont, xbin, key)
-  }
+function treeOnClick() {
+  const key       = this.dataset['key'],
+        container = document.getElementById('view-cont')
+  renderView(container, xbin, key)
+}
 
-  function loadFiles(files) {
-    var reader = new FileReader()
-    reader.onload = function () {
+function loadFiles(files) {
+  // TODO: support for loading multiple files
+  return asyncRead(files[0])
+    .then(res => res.arrayBuffer())
+    .then(res => {
+      const el = document.getElementById('tree')
+
       tick()
-      xbin = parseXbin(reader.result)
+      xbin = parseXbin(res)
       tock("parseXbin")
-
-      var el = document.getElementById('tree')
-      var html = renderTree(xbin)
+      const html = renderTree(xbin)
       tock("renderTree")
       el.innerHTML = html
       tock("innerHTML=")
       expandInit(el)
       tock("expandInit")
-      var leaves = el.querySelectorAll('.leaf')
-      Array.prototype.forEach.call(leaves, function (leaf) {
+      const leaves = el.querySelectorAll('.leaf')
+      for (let leaf of leaves) {
         leaf.addEventListener('click', treeOnClick, false)
-      })
+      }
       tock("init leaves")
 
-      renderView(document.getElementById('view-cont'), xbin, 3731) // TODO: hack/temporary
-    }
-    reader.readAsArrayBuffer(files[0])
-  }
+      // FIXME: hack/temporary--hardcoded ID
+      renderView(document.getElementById('view-cont'), xbin, 3731)
+    })
+}
 
-  var el = document.querySelector('#file-selector')
-  el.addEventListener('change', function () {
-    loadFiles(el.files)
-  }, false)
+var el = document.getElementById('file-selector')
+el.addEventListener('change', () => loadFiles(el.files), false)
 
-  if (el.files.length > 0) loadFiles(el.files)
-}()
+if (el.files.length > 0) loadFiles(el.files)

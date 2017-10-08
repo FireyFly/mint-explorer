@@ -52,3 +52,23 @@ export function tock(msg) {
   console.log(sprintf("%4d.%03d %s", seconds, thousands, msg || "Tock"))
   tick()
 }
+
+/** fetch-like API for FileReader */
+export function asyncRead(blob) {
+  const reader = new FileReader()
+
+  function wrapMethod(method) {
+    return () => new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(reader.error)
+      reader[method](blob)
+    })
+  }
+
+  return Promise.resolve({
+    arrayBuffer:  wrapMethod('readAsArrayBuffer'),
+    binaryString: wrapMethod('readAsBinaryString'),
+    dataURL:      wrapMethod('readAsDataURL'),
+    text:         wrapMethod('readAsText'),
+  })
+}
