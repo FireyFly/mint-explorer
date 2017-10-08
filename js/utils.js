@@ -41,30 +41,3 @@ export function sprintf(fmt, ...args) {
 export function printf(...args) {
   console.log(sprintf(...args))
 }
-
-
-//-- Node -----------------------------------------------------------
-export class Node {
-  constructor(props = {}) {
-    this.ch = {}
-    this.children = []
-    Object.assign(this, props)
-  }
-
-  add(name, props) {
-    if (!(name in this.ch)) {
-      this.ch[name] = new Node(props)
-      this.children.push(name)
-    }
-    return this.ch[name]
-  }
-
-  addPath(path, props) {
-    var curr = this
-    for (let [type, name] of path) {
-      curr.add(name, { type: type, name: name })
-      curr = curr.ch[name]
-    }
-    Object.assign(curr, props)
-  }
-}
