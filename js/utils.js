@@ -38,6 +38,17 @@ export function sprintf(fmt, ...args) {
     }
   }
 }
-export function printf(...args) {
-  console.log(sprintf(...args))
+
+//-- Simple timing
+let start
+export function tick() {
+  start = Date.now()
+}
+
+export function tock(msg) {
+  const delta = Date.now() - start
+  const seconds = Math.floor(delta / 1000),
+        thousands = delta % 1000
+  console.log(sprintf("%4d.%03d %s", seconds, thousands, msg || "Tock"))
+  tick()
 }

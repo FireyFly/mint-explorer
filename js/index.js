@@ -1,20 +1,7 @@
-import { printf } from './utils.js'
+import { tick, tock, sprintf } from './utils.js'
 import { parseXbin } from './mint/loader.js'
 import { renderView } from './components/MintView.js'
 import { renderTree, expandInit } from './components/Tree.js'
-
-var bench = (function () {
-  var start
-  function tick() {
-    start = Date.now()
-  }
-  function tock(msg) {
-    var delta = Date.now() - start
-    printf("%4d.%03d %s", Math.floor(delta / 1000), delta % 1000, msg || "Tock")
-    start = Date.now()
-  }
-  return {tick: tick, tock: tock}
-})()
 
 void function () {
   var xbin = null
@@ -28,22 +15,22 @@ void function () {
   function loadFiles(files) {
     var reader = new FileReader()
     reader.onload = function () {
-      bench.tick()
+      tick()
       xbin = parseXbin(reader.result)
-      bench.tock("parseXbin")
+      tock("parseXbin")
 
       var el = document.getElementById('tree')
       var html = renderTree(xbin)
-      bench.tock("renderTree")
+      tock("renderTree")
       el.innerHTML = html
-      bench.tock("innerHTML=")
+      tock("innerHTML=")
       expandInit(el)
-      bench.tock("expandInit")
+      tock("expandInit")
       var leaves = el.querySelectorAll('.leaf')
       Array.prototype.forEach.call(leaves, function (leaf) {
         leaf.addEventListener('click', treeOnClick, false)
       })
-      bench.tock("init leaves")
+      tock("init leaves")
 
       renderView(document.getElementById('view-cont'), xbin, 3731) // TODO: hack/temporary
     }
