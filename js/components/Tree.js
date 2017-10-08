@@ -1,39 +1,69 @@
-// TODO: rewrite this to be more reusable and encapsulated and stuff
+import {Component, mk} from './lib.js'
 
-//-- Expansion --------------------------------------------
-export function isToggled(el) {
-  var toggled = el.dataset['toggled']
-  if (toggled == null) toggled = "false"  // Default to contracted
-  return toggled == 'true'
+const {li, ul, span} = 'li ul span'
+  .split(' ')
+  .reduce((obj, tag) => Object.assign(obj, {[tag]: mk.bind(null, tag)}), {})
+
+export class TreeNode extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { expanded: false }
+  }
+
+  isExpanded() {
+    return this.state.expanded
+  }
+
+  toggle() {
+    this.setState({ expanded: !this.state.expanded })
+  }
+
+  render() {
+    const { children, label, className, onClick } = this.props
+    const nodeClassName = className != null? `node ${className}` : 'node'
+    if (children.length > 0) {
+      // Internal node
+      return li({},
+               span({className:'expand', onClick: () => this.toggle()}, '⊞'),
+               span({className:nodeClassName, onClick}, label),
+               ul({}, ...children)
+             )
+    } else {
+      // Leaf node
+      return li({className:'leaf'},
+               span({className:'noexpand'}, ''),
+               span({className:nodeClassName, onClick}, label)
+             )
+    }
+  }
+
+  rerender(root) {
+    root.querySelector('.expand').textContent = this.state.expanded? "⊟" : "⊞"
+    root.querySelector('ul').style.display = this.state.expanded? 'block' : 'none'
+  }
 }
-function setToggled(el, value) {
-  el.dataset['toggled'] = String(value)
+
+export function buildNodeTree(xbin, onClick) {
+  function buildNode(node) {
+    const children = (node.children || []).map(buildNode)
+    const label = node.pretty || node.name || "(none)"
+
+    const isImplicit = (node.type == 'package' && node.name == '')
+
+    return mk(TreeNode, {
+      className: node.type + (isImplicit? ' implicit' : ''),
+      onClick() { onClick(node.key) },
+      label,
+    }, ...children)
+  }
+
+  const children = xbin.tree.children[0].children.map(buildNode)
+  return ul({className:'function-tree'}, ...children)
 }
 
-export function toggle() {
-  var toggled = isToggled(this)
-  toggled = !toggled
-
-  setToggled(this, toggled)
-  this.textContent = toggled? "⊟" : "⊞"
-
-  var el = this
-  while (el.nodeName.toLowerCase() != 'li' && el.parentNode != null) el = el.parentNode
-  var ul = el.querySelector('ul')
-  if (ul != null) ul.style.display = toggled? 'block' : 'none'
-}
-
-// Init expandable tree
-export function expandInit(rootEl) {
-  var expandEls = rootEl.querySelectorAll('.expand')
-  Array.prototype.forEach.call(expandEls, function (el) {
-    el.addEventListener('click', toggle, false)
-  })
-}
-
-//-- Render -----------------------------------------------
-// TODO: these are specific to Mint's use of the tree…
+// TODO
 export function expandTreePath(ent) {
+  /*
   var obj = ent
   while (obj.parent != null) {
     if (obj.children != null && obj.children.length > 0) {
@@ -42,55 +72,5 @@ export function expandTreePath(ent) {
     }
     obj = obj.parent
   }
-}
-
-function entify(str) {
-  return str.replace(/[<>&]/g, function (ch) {
-    return {'<':'&lt;', '>':'&gt;', '&':'&amp;'}[ch]
-  })
-}
-
-export function renderTree(xbin) {
-  function format(pat, obj) {
-    return pat.replace(/{{(\w+)}}/g, function (_, key) {
-      return obj[key]
-    })
-  }
-
-  function renderNode(node) {
-    var isInternal = node.children != null && node.children.length != 0;
-    var name = node.pretty || node.name || "(none)"
-
-    if (isInternal) {
-      //-- Internal node
-      var isImplicit = node.type == 'package' && node.name == ''
-
-      var pattern = [ '<li>',
-                        '<span class="expand" data-key="{{key}}">⊞</span>',
-                        '<span class="node {{classes}}">{{pretty}}</span>',
-                        '<ul>{{children}}</ul>',
-                      '</li>' ].join("")
-
-      var children = node.children.map(renderNode).join("")
-      return format(pattern, { key:      node.key,
-                               classes:  node.type + (isImplicit? ' implicit' : ''),
-                               pretty:   entify(name),
-                               children: children })
-
-    } else {
-      //-- Leaf node
-      var pattern = [ '<li class="leaf" data-key="{{key}}">',
-                        '<span class="noexpand"></span>',
-                        '<span class="node {{classes}}">{{pretty}}</span>',
-                      '</li>' ].join("")
-
-      return format(pattern, { key:      node.key,
-                               classes:  node.type,
-                               pretty:   entify(name) })
-
-    }
-  }
-
-  var res = xbin.tree.children[0].children.map(renderNode).join("")
-  return '<ul class="function-tree">' + res + '</ul>'
+  */
 }
