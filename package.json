@@ -1,0 +1,29 @@
+{
+  "name": "mint-explorer",
+  "version": "0.1.0",
+  "description": "Tool for exploring Mint bytecode files",
+  "main": "index.js",
+  "dependencies": {
+    "webpack": "^3.6.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FireyFly/mint-explorer.git"
+  },
+  "keywords": [
+    "reverse-engineering",
+    "disassembly",
+    "bytecode",
+    "mint"
+  ],
+  "author": "FireFly (http://firefly.nu/)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/FireyFly/mint-explorer/issues"
+  },
+  "homepage": "https://github.com/FireyFly/mint-explorer#readme"
+}
