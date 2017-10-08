@@ -3,14 +3,21 @@ import { isToggled, toggle } from '../expand-tree.js'
 import { disassemble, render_disassembly } from './disassembler.js'
 
 //-- View -----------------------------------------------------------
-function renderBreadcrumb(ent, xbin) {
-  var path = [], obj = ent
+function expandTreePath(ent) {
+  var obj = ent
   while (obj.parent != null) {
-    path.push(obj)
     if (obj.children != null && obj.children.length > 0) {
       var el = document.querySelector('[data-key="' + obj.key + '"]')
       if (el != null && !isToggled(el)) toggle.call(el)
     }
+    obj = obj.parent
+  }
+}
+
+function renderBreadcrumb(ent, xbin) {
+  var path = [], obj = ent
+  while (obj.parent != null) {
+    path.push(obj)
     obj = obj.parent
   }
   path = path.reverse().slice(1)  // first package is the empty/root package
@@ -35,6 +42,9 @@ export function renderView(cont, xbin, key) {
   var ent = xbin.by_key[key]
 
   cont.innerHTML = ""
+
+  // Make sure to expand the tree path up from `ent`
+  expandTreePath(ent)
 
   // Breadcrumb
   cont.appendChild(renderBreadcrumb(ent, xbin))
