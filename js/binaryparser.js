@@ -83,7 +83,4 @@ BinaryParser.prototype.read = function (type) {
   }
 }
 
-
-if (typeof exports == 'object') {
-  exports.BinaryParser = BinaryParser
-}
+export default BinaryParser

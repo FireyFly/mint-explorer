@@ -1,9 +1,9 @@
 //-- Helpers --------------------------------------------------------
-function assert(cond, msg) {
+export function assert(cond, msg) {
   if (!cond) throw new Error(msg || "Assertion failed.")
 }
 
-function sprintf(fmt /*...*/) {
+export function sprintf(fmt /*...*/) {
   var args = arguments,
       i    = 1
 
@@ -42,13 +42,13 @@ function sprintf(fmt /*...*/) {
     }
   }
 }
-function printf(/*...*/) {
+export function printf(/*...*/) {
   console.log(sprintf.apply(null, arguments))
 }
 
 
 //-- Node -----------------------------------------------------------
-function Node(props) {
+export function Node(props) {
   if (props == null) props = {}
   this.ch = {}
   this.children = []

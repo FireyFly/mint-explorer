@@ -1,5 +1,6 @@
-//-- Mini-DSL for instructions --------------------------------------
+import { sprintf } from '../utils.js'
 
+//-- Mini-DSL for instructions --------------------------------------
 // Types
 // ---------
 // bool         ┐
@@ -206,7 +207,7 @@ function groupN(arr, n) {
   return res
 }
 
-function disassemble(method, xbin) {
+export function disassemble(method, xbin) {
   const u8 = new Uint8Array(method.bytecode)
 
   const file  = method.parent.parent,
@@ -358,7 +359,7 @@ function analyse_liveness(instrs_, cfg) {
   return {insets: ins, outsets: outs}
 }
 
-function render_disassembly(instrs_) {
+export function render_disassembly(instrs_) {
   const classOf = v => v == 0x00? 'zero'
                      : v == 0xFF? 'all'
                      : v  < 0x20? 'low'

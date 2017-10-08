@@ -1,3 +1,7 @@
+import { sprintf } from '../utils.js'
+import { isToggled, toggle } from '../expand-tree.js'
+import { disassemble, render_disassembly } from './disassembler.js'
+
 //-- View -----------------------------------------------------------
 function renderBreadcrumb(ent, xbin) {
   var path = [], obj = ent
@@ -27,7 +31,7 @@ function renderBreadcrumb(ent, xbin) {
   return breadcrumb
 }
 
-function renderView(cont, xbin, key) {
+export function renderView(cont, xbin, key) {
   var ent = xbin.by_key[key]
 
   cont.innerHTML = ""
@@ -87,7 +91,7 @@ function entify(str) {
   })
 }
 
-function renderTree(xbin) {
+export function renderTree(xbin) {
   function format(pat, obj) {
     return pat.replace(/{{(\w+)}}/g, function (_, key) {
       return obj[key]

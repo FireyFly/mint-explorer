@@ -1,3 +1,6 @@
+import { assert, sprintf } from '../utils.js'
+import BinaryParser from '../binaryparser.js'
+
 function readstr(bp, offset) {
   bp.seek(offset)
   var size = bp.read('u32')
@@ -265,11 +268,10 @@ function postprocessXbin(root, xbin) {
            by_key:          byKey }
 }
 
-function parseXbin(buf) {
+export function parseXbin(buf) {
   var bp = new BinaryParser(buf)
   bp.flipped = true
 
   var root = read_xbin(bp)
   return postprocessXbin(root)
 }
-
