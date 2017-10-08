@@ -32,3 +32,4 @@ html, body {
 .hexdump .high    , .disasm .high    { color: #96f; }
 .hexdump .all     , .disasm .all     { color: #c33; }
 
+.disasm .box { color: #666; }

@@ -377,52 +377,68 @@ function render_disassembly(instrs_) {
   const pre = document.createElement('pre')
   pre.classList.add('disasm')
 
-  function printInstruction(instr) {
-    const i = instr.index
-
-    // Address
+  const printf   = (...args) => pre.appendChild(document.createTextNode(sprintf(...args)))
+  const printfAs = (class_, ...args) => {
     const span = document.createElement('span')
-    span.classList.add('address')
-    span.appendChild(document.createTextNode(sprintf('%4u ', i)))
+    span.classList.add(class_)
+    span.appendChild(document.createTextNode(sprintf(...args)))
     pre.appendChild(span)
+  }
 
-    // Bytecode
-    for (let byte of instr.raw) {
-      const span = document.createElement('span')
-      span.classList.add(classOf(byte))
-      span.appendChild(document.createTextNode(sprintf(' %02x', byte)))
-      pre.appendChild(span)
+  const blocks = construct_blocks(instrs)
+  let currArrows = [...Array(2)].map(_ => null)
+
+  // Print instructions
+  for (let block of blocks) {
+    const label = sprintf("BB %d (%s#%s)", block.index,
+                      block.pred.length > 0? sprintf("%s → ", block.pred) : "",
+                      block.succ.length > 0? sprintf(" → %s", block.succ) : ""),
+          arrowPadding = Array(currArrows.length + 1).join("  ")
+
+    printf("%16s%s ", "", arrowPadding)
+    printfAs('box', "┌── ")
+    printf(label)
+    printfAs('box', " %s┐\n", Array(50 - label.length + 1).join("─"))
+
+    for (let instr of block.instrs) {
+      const {index, raw, pretty, pred, succ} = instr
+
+      // Address
+      printfAs('address', "%4u", index)
+
+      // Raw bytecode
+      for (let byte of raw) printfAs(classOf(byte), " %02x", byte)
+
+      // Branch arrows
+      const isNextOnly = (arr,d) => arr.length == 1 && arr[0] == index + d
+      const marker = !isNextOnly(pred,-1) && succ.length <= 1? "->"
+                   : !isNextOnly(succ,+1) && pred.length <= 1? "<-"
+                   :                                      "  "
+      currArrows[0] = marker
+      const arrowString = currArrows.slice().reverse().map(arrow =>
+                              arrow == null? "  " : arrow).join("")
+      currArrows[0] = null
+      printf(" " + arrowString)
+
+      // Pretty-printed instruction
+      printfAs('box', "│ ")
+      printf(pretty + "\n")
     }
+
+    printfAs('box', "%16s%s └────%s┘\n", "", arrowPadding, Array(50 + 1).join("─"))
+  }
+
+  return pre
+}
 
     // FIXME: CFG in- and out-sets
  // pre.appendChild(document.createTextNode(sprintf(' %8s %6s', instr.pred, instr.succ)))
 
     // FIXME: USE/DEF, IN/OUT
-    pre.appendChild(document.createTextNode(sprintf(' %8s %14s', instr.writeset, instr.readset)))
+ // pre.appendChild(document.createTextNode(sprintf(' %8s %14s', instr.writeset, instr.readset)))
  // pre.appendChild(document.createTextNode(sprintf(' %24s %24s',
  //     Object.keys(instr.inset).sort(),
  //     Object.keys(instr.outset).sort())))
-
-    // Human-readable part
-    pre.appendChild(document.createTextNode("  ; " + instr.pretty + "\n"))
-  }
-
-  const blocks = construct_blocks(instrs)
-
-  // Print instructions
-  for (let block of blocks) {
-    pre.appendChild(document.createTextNode(sprintf(
-        "BasicBlock %d (%s#%s) {\n", block.index,
-            block.pred.length > 0? sprintf("%s → ", block.pred) : "",
-            block.succ.length > 0? sprintf(" → %s", block.succ) : "")));
-    for (let instr of block.instrs) {
-      printInstruction(instr)
-    }
-    pre.appendChild(document.createTextNode("}\n"));
-  }
-
-  return pre
-}
 
 //-- Disasm renderer ------------------------------------------------
 // TODO: rename to render_disassembly
