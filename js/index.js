@@ -1,7 +1,7 @@
 import { printf } from './utils.js'
 import { parseXbin } from './mint/loader.js'
-import { renderTree, renderView } from './mint/render.js'
-import { expandInit } from './expand-tree.js'
+import { renderView } from './components/MintView.js'
+import { renderTree, expandInit } from './components/Tree.js'
 
 var bench = (function () {
   var start
