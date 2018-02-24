@@ -27,14 +27,15 @@ function loadFiles(files) {
       tock("innerHTML=")
       expandInit(el)
       tock("expandInit")
-      const leaves = el.querySelectorAll('.leaf')
-      for (let leaf of leaves) {
-        leaf.addEventListener('click', treeOnClick, false)
+      const elements = el.querySelectorAll('.node')
+      for (const node of elements) {
+        node.addEventListener('click', treeOnClick, false)
       }
-      tock("init leaves")
+      tock("init click handlers")
 
       // FIXME: hack/temporary--hardcoded ID
-      renderView(document.getElementById('view-cont'), xbin, 3731)
+      renderView(document.getElementById('view-cont'), xbin, 1)
+   // renderView(document.getElementById('view-cont'), xbin, 11721)
     })
 }
 

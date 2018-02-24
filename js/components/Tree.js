@@ -38,6 +38,7 @@ export function expandTreePath(ent) {
   while (obj.parent != null) {
     if (obj.children != null && obj.children.length > 0) {
       var el = document.querySelector('[data-key="' + obj.key + '"]')
+      if (el != null) el = el.parentNode.querySelector('.expand')
       if (el != null && !isToggled(el)) toggle.call(el)
     }
     obj = obj.parent
@@ -66,8 +67,8 @@ export function renderTree(xbin) {
       var isImplicit = node.type == 'package' && node.name == ''
 
       var pattern = [ '<li>',
-                        '<span class="expand" data-key="{{key}}">⊞</span>',
-                        '<span class="node {{classes}}">{{pretty}}</span>',
+                        '<span class="expand">⊞</span>',
+                        '<span data-key="{{key}}" class="node {{classes}}">{{pretty}}</span>',
                         '<ul>{{children}}</ul>',
                       '</li>' ].join("")
 
@@ -79,9 +80,9 @@ export function renderTree(xbin) {
 
     } else {
       //-- Leaf node
-      var pattern = [ '<li class="leaf" data-key="{{key}}">',
+      var pattern = [ '<li class="leaf">',
                         '<span class="noexpand"></span>',
-                        '<span class="node {{classes}}">{{pretty}}</span>',
+                        '<span data-key="{{key}}" class="node {{classes}}">{{pretty}}</span>',
                       '</li>' ].join("")
 
       return format(pattern, { key:      node.key,

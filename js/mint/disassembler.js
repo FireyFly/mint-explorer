@@ -1,6 +1,50 @@
 import { sprintf } from '../utils.js'
 
+function parseDSL(specs) {
+  const res = {}
+
+  // Parse mini-DSL for instruction specifications, turning each spec into a
+  // useful structure to be used for parsing each bytecode instruction.
+  for (let k in specs) {
+    const [pretty, write, read] = specs[k].split("|").map(s => s.trim())
+    const paramPattern = /\b(r[xyz]|(?:\w+:)?[xyzv])\b/g
+
+    // Parse parameters from pretty
+    const params = (pretty.match(paramPattern) || []).map(spec => {
+      // Handle `type:v` style syntax
+      let [type, field] = spec.includes(':')? spec.split(':') : ['imm', spec]
+      // Handle r[xyz]
+      if (field[0] == 'r') type = 'reg', field = field.slice(1)
+      return {type, field}
+    })
+
+    // Parse read/write (aka USE and DEF)
+    // TODO: make use of type data
+    const writeset = write.split(",").map(s => s.split(":")[0]).filter(Boolean),
+          readset  = read.split(",").map(s => s.split(":")[0]).filter(Boolean)
+
+    // Format string to use in the prettyprinter
+    let i = 0
+    const format = pretty.replace(paramPattern, _ =>
+        ({ 'imm':       '%02x',   // immediate
+           'reg':       'r%02u',  // register
+        // 'data':      '0x%08x', // static data (32-bit or string) (TODO: type?)
+           'data':      '%s',     // static data (prettyprinted separately)
+           'data_s':    '"%s"',   // static data (string) (FIXME: remove)
+           'class':     '%s',     // xref: class target
+           'method':    '%s',     // xref: method target
+           'field':     '%s',     // xref: field target (static or member)
+           'reloffset': '%d',     // relative jmp offsets (signed)
+         }[params[i++].type]))
+
+    res[k] = {format, params, writeset, readset}
+  }
+
+  return res
+}
+
 //-- Mini-DSL for instructions --------------------------------------
+
 // Types
 // ---------
 // bool         ┐
@@ -24,7 +68,114 @@ import { sprintf } from '../utils.js'
 // * When are <enum>s akin to integers?  only for ld purposes, or otherwise
 //   too?  can you perform arithmetic on <enum>s?
 
-const instructionSpecs = {
+const instructionSpecsRTDL = parseDSL({
+// op     mnemonic    params              write           read
+  0x01: ' mov         rz, true          | z:bool        |                   ',
+  0x02: ' mov         rz, false         | z:bool        |                   ',
+  0x03: ' ld          rz, data:v        | z:word        |                   ',
+  0x04: ' ld          rz, data_s:v      | z:string      |                   ', // FIXME: data_s is temporary since we aren't handling types yet
+  0x05: ' mov         rz, rx            | z:~x          | x                 ',
+  0x06: ' mov         rz, <res>         | z:~RES        | RES               ',
+
+  // 0e/0f? offset? (0e/0f for methods, 00 for static)
+  // TODO: maybe don't read from ARGS here?
+  0x07: ' argset      [z] rx            | ARGS          | ARGS,x            ',
+
+  0x09: ' getstatic   rz, field:v       | z:~v          |                   ',
+  0x0a: ' getderef    rz, rx            | z:~*x         | x                 ',
+//0x0e: ' getfield    rz, rx, field:y   | z:~&y         | x                 ',
+
+  // TODO: figure out if int or uint here?
+  0x0b: ' sizeof      rz, class:v       | z:int         |                   ',
+
+  0x0c: ' putderef    rz, rx            |               | z,x               ',
+//0x13: ' putfield    rz, field:y, rx   |               | z,x               ',
+  0x0d: ' putstatic   field:v, rz       |               | z                 ',
+
+  0x0e: ' addi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x0f: ' subi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x10: ' muli??      rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x11: ' divi??      rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x12: ' modi??      rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x13: ' inci        rz                | z:~z          | z:int             ',
+  0x14: ' negi?       rz, rx            | z:~x          | x:int             ',
+
+  0x16: ' addf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x17: ' subf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x18: ' mulf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x19: ' divf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+
+  0x1c: ' negf        rz, rx            | z:~x          | x                 ',
+
+  0x1d: ' lt int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x1e: ' ne? int     rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x1f: ' eq int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+//0x2c: ' ?? int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x21: ' lt float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+//0x2e: ' ?? float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+
+  0x27: ' eq bool     rz, rx, ry        | z:bool        | x:bool,y:bool     ',
+  0x28: ' ne? bool    rz, rx, ry        | z:bool        | x:bool,y:bool     ',
+
+  // 3b zz xx ff: found with arrays, passed <index> and <array length>
+  // TODO: int or uint? does this actually write to rz? no clue.
+//0x3b: ' capindex?   rz, rx            | z:int         | z:int,x:uint      ',
+
+  0x2a: ' bitor       rz, rx, ry        | z:int         | x:int,y:int       ',
+
+  0x2d: ' not         rz, rx            | z:bool        | x:bool            ',
+  // 2e: appears to be some kind of interaction with native code
+  // e.g. used for reading controller buttons in Scn.Step.Hero.ButtonMask
+//0x2e: ' lookup?     rz, rx, ry        | z:int         | x:int,y:int       ',
+
+  0x30: ' jmp         reloffset:v       | PC            |                   ',
+  0x31: ' jmp if      reloffset:v, rz   | PC            | z:bool            ',
+  0x32: ' jmp not     reloffset:v, rz   | PC            | z:bool            ',
+
+  // decl: z local, x = (#args + retreg? + this?)
+  0x33: ' decl        z, x              |               |                   ',
+  0x34: ' ret                           |               |                   ',
+  0x35: ' ret         rx                |               | y                 ',
+  0x36: ' call        method:v          | RES           | ARGS              ',
+//0x4a: ' call ???    method:v          | RES           | ARGS              ',
+//0x4b: ' call ext    method:v          | RES           | ARGS              ',
+  // 37: some kind of interaction with native, setting some value
+  // invoked with regs with values of 1, 30, 60, 180
+//0x37: ' ?? intreg   rz                |               | z:int             ',
+  // TODO: enforce z ~ x type constraint
+  0x38: ' copy?       rz, rx, ry        |               | z,x,y:int         ',
+
+  0x3a: ' new         rz, class:v       | z:~v          |                   ',
+//0x50: ' new&        rz, class:v       | z:~&v         |                   ',
+  // TODO: is 0x51 even useful? should I have one primitive and one object-type register per regno?
+  0x3c: ' del?        rz, class:v       |               |                   ',
+
+  // 0x53: related to `const ref`
+  // 53 ?? xx yy: access field yy of xx (object-type field)
+//0x53: ' getfield&   rz, rx, field:y   | z:~&y         | x                 ',
+  0x3d: ' getfield&   rz, field:v       | z:~&v         | z                 ',
+
+  0x3e: ' mkarray     rz                | z             | z:int             ',
+  0x3f: ' getindex&   rz, rx            | z:~&*x        | x                 ',
+  0x40: ' arrlength   rz, rx            | z:int         | x                 ',
+  0x41: ' delarray    rz, rx            |               | z,x:int           ',
+
+  // TODO: I forget how this instruction works
+//0x59: ' getindex&   rz, rx, ry        | z             | x,y               ',
+
+//0x5b: ' f2i         rz, rx            | z:int         | x:float           ',
+//0x5c: ' u2e?        rz, rx            | z             | x:uint            ',
+//0x5d: ' i2u?        rz, rx            | z:uint        | x:int             ',
+//0x5e: ' f2u         rz, rx            | z:uint        | x:float           ',
+//0x5f: ' i2f         rz, rx            | z:float       | x:int             ',
+//0x60: ' u2f         rz, rx            | z:float       | x:uint            ',
+
+  // References a class with unk1 $0001
+//0x61: ' <<61>>      rz, class:v       | z             |                   ',
+//0x63: ' <<63>>      rz, data:v        | z             |                   ',
+})
+
+const instructionSpecsK3D = parseDSL({
 // op     mnemonic    params              write           read
   0x01: ' mov         rz, true          | z:bool        |                   ',
   0x02: ' mov         rz, false         | z:bool        |                   ',
@@ -110,7 +261,7 @@ const instructionSpecs = {
 
   // 0x53: related to `const ref`
   // 53 ?? xx yy: access field yy of xx (object-type field)
-  0x53: ' getfield&   rz, rx, field:y   | z:~&v         | x                 ',
+  0x53: ' getfield&   rz, rx, field:y   | z:~&y         | x                 ',
   0x54: ' mkarray     rz                | z             | z:uint            ',
   0x55: ' getindex&   rz, rx            | z:~&*x        | x                 ',
   0x56: ' delarray    rz, rx            |               | z,x:uint          ',
@@ -128,47 +279,20 @@ const instructionSpecs = {
   // References a class with unk1 $0001
   0x61: ' <<61>>      rz, class:v       | z             |                   ',
   0x63: ' <<63>>      rz, data:v        | z             |                   ',
-}
+})
 
-// Parse mini-DSL for instruction specifications, turning each spec into a
-// useful structure to be used for parsing each bytecode instruction.
-for (let k in instructionSpecs) {
-  const [pretty, write, read] = instructionSpecs[k].split("|").map(s => s.trim())
-  const paramPattern = /\b(r[xyz]|(?:\w+:)?[xyzv])\b/g
-
-  // Parse parameters from pretty
-  const params = (pretty.match(paramPattern) || []).map(spec => {
-    // Handle `type:v` style syntax
-    let [type, field] = spec.includes(':')? spec.split(':') : ['imm', spec]
-    // Handle r[xyz]
-    if (field[0] == 'r') type = 'reg', field = field.slice(1)
-    return {type, field}
-  })
-
-  // Parse read/write (aka USE and DEF)
-  // TODO: make use of type data
-  const writeset = write.split(",").map(s => s.split(":")[0]).filter(Boolean),
-        readset  = read.split(",").map(s => s.split(":")[0]).filter(Boolean)
-
-  // Format string to use in the prettyprinter
-  let i = 0
-  const format = pretty.replace(paramPattern, _ =>
-      ({ 'imm':       '%02x',   // immediate
-         'reg':       'r%02u',  // register
-         'data':      '0x%08x', // static data (32-bit or string) (TODO: type?)
-         'data_s':    '"%s"',   // static data (string) (FIXME: remove)
-         'class':     '%s',     // xref: class target
-         'method':    '%s',     // xref: method target
-         'field':     '%s',     // xref: field target (static or member)
-         'reloffset': '%d',     // relative jmp offsets (signed)
-       }[params[i++].type]))
-
-  instructionSpecs[k] = {format, params, writeset, readset}
+const instructionSpecs = {
+  RTDL: instructionSpecsRTDL,
+  K3D: instructionSpecsK3D,
 }
 
 
 //-- Disassembler ---------------------------------------------------
-function prettyxref(xref, ent, xbin) {
+export function prettyxref(xref, ent, xbin) {
+  if (typeof xref === 'string') {
+    return xref;
+  }
+  // V2 (K3D)
   const target = xbin.by_hash[xref]
   if (target == null) return sprintf("#[%08x]", xref)
   return target.type == 'class'?  target.name
@@ -213,15 +337,16 @@ export function disassemble(method, xbin) {
   const file  = method.parent.parent,
         xrefs = file.xrefs
   const sdata = file.static_data,
-        sd_u8  = new Uint8Array(sdata),
-        sd_sz  = sdata.byteLength - sdata.byteLength%4,
-        sd_u32 = new Uint32Array(sdata.slice(0, sd_sz))
+        sdataU8  = new Uint8Array(sdata),
+        sdataView = new DataView(sdata)
 
   const instrs = groupN(u8, 4).map(([op, z, x, y], index) => {
     // Fields (each char a nibble):
     //   oozzxxyy
     //       vvvv
-    const v   = y << 8 | x,
+    const v   = xbin.version == 'RTDL'
+                  ? x << 8 | y
+                  : y << 8 | x,
           vi  = v >= 0x8000? -((v ^ 0xffff) + 1) : v,
           raw = [op,z,x,y]
 
@@ -235,7 +360,21 @@ export function disassemble(method, xbin) {
                 : gameId == 8? op >= 0x4c? op - 1 : op  // Fighters
                 :              op
 
-    const spec = instructionSpecs[opIdx]
+    const spec = instructionSpecs[xbin.version][opIdx]
+    if (spec == null) {
+      // unknown instruction
+      return {
+        op, raw, index,
+        mnemonic: '<UNKNOWN>',
+        pretty: '<UNKNOWN>',
+        spec: null,
+        method,
+        args: [],
+        readset: [],
+        writeset: [],
+      }
+    }
+
     const mnemonic = spec.format.match(/^(?:[^ ]| [^ ])+/)[0]
 
     // Fetch concrete argument values (look up in cpool/xrefs etc)
@@ -244,8 +383,10 @@ export function disassemble(method, xbin) {
                    switch (type) {
                      case 'imm':
                      case 'reg':       return value
-                     case 'data':      return sd_u32[value/4]
-                     case 'data_s':    return readstring(sd_u8, value)
+                  // case 'data':      return sdataView.getUint32(value, xbin.version != 'RTDL')
+                     case 'data':      return [sdataView.getUint32(value, xbin.version != 'RTDL'),
+                                               sdataView.getFloat32(value, xbin.version != 'RTDL')]
+                     case 'data_s':    return readstring(sdataU8, value)
                      case 'class':
                      case 'method':
                      case 'field':     return xrefs[value]
@@ -258,17 +399,24 @@ export function disassemble(method, xbin) {
     const readset  = spec.readset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r),
           writeset = spec.writeset.map(r => 'xyz'.includes(r)? 'r' + {x,y,z}[r] : r)
 
+    const prettydata = ([int, float]) => sprintf('0x%08x (%f)', int, float)
     // Prettyprint instruction
-    const pretty = sprintf(spec.format, ...args.map((v,i) =>
-                     ['class','method','field'].includes(spec.params[i].type)?
-                        prettyxref(v,method,xbin) : v))
+    const pretty = sprintf(
+      spec.format,
+      ...args.map((v,i) =>
+          ['class','method','field'].includes(spec.params[i].type)? prettyxref(v,method,xbin)
+        : spec.params[i].type == 'data'?                            prettydata(v)
+        :                                                           v),
+    )
 
     // Resulting parsed instruction
-    return {op, raw, index,
-            mnemonic, pretty,
-            spec, method,
-            args,
-            readset, writeset }
+    return {
+      op, raw, index,
+      mnemonic, pretty,
+      spec, method,
+      args,
+      readset, writeset,
+    }
   })
 
   return instrs
@@ -443,7 +591,7 @@ export function render_disassembly(instrs_) {
 
 //-- Disasm renderer ------------------------------------------------
 // TODO: rename to render_disassembly
-function render_disassembly_plain(instrs) {
+export function render_disassembly_plain(instrs) {
   const classOf = v => v == 0x00? 'zero'
                      : v == 0xFF? 'all'
                      : v  < 0x20? 'low'
@@ -476,3 +624,41 @@ function render_disassembly_plain(instrs) {
 
   return pre
 }
+
+export function showPackageInfo(pkg, xbin) {
+  const opcodeUsage = {};
+
+  function traverse(ent) {
+    if (ent.type == 'method') {
+      const u8 = new Uint8Array(ent.bytecode);
+      for (let i = 0; i < u8.length; i += 4) {
+        const op = u8[i];
+        if (opcodeUsage[op] == null) opcodeUsage[op] = 0;
+        opcodeUsage[op]++;
+      }
+    }
+    ent.children && ent.children.forEach(traverse);
+  }
+
+  traverse(pkg);
+
+  const pre = document.createElement('pre')
+  const printf = (...args) => pre.appendChild(document.createTextNode(sprintf(...args)))
+
+  const specs = instructionSpecs[xbin.version];
+
+  printf('(opcode frequency)\n');
+  Object.keys(opcodeUsage).map(Number)
+    .sort((a,b) => a - b)
+    .forEach((op) => {
+      if (specs[op] == null) {
+        printf('>>  %02x  ×%-6u\n', op, opcodeUsage[op]);
+      } else {
+        const name = specs[op].format.split(/\s{2,}/)[0];
+        printf('    %02x  ×%-6u  %s\n', op, opcodeUsage[op], name);
+      }
+    });
+
+  return pre;
+}
+

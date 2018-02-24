@@ -1,5 +1,10 @@
-import { sprintf } from '../utils.js'
-import { disassemble, render_disassembly } from '../mint/disassembler.js'
+import { sprintf, hexdump } from '../utils.js'
+import {
+  disassemble,
+  prettyxref,
+  render_disassembly, render_disassembly_plain,
+  showPackageInfo,
+} from '../mint/disassembler.js'
 import { expandTreePath } from './Tree.js'
 import { renderBreadcrumb } from './Breadcrumb.js'
 
@@ -39,16 +44,31 @@ export function renderView(cont, xbin, key) {
 
   // Main content
   switch (ent.type) {
+    case 'package':
+    case 'file':
+      const pre = showPackageInfo(ent, xbin)
+      cont.appendChild(pre)
+      break
+
     case 'method':
       var instrs = disassemble(ent, xbin)
       var pre = render_disassembly(instrs)
       cont.appendChild(pre)
       break
 
+    case 'sdata':
+      var pre = hexdump(ent.sdata)
+      cont.appendChild(pre)
+      break
+
     case 'xrefs':
       var pre = document.createElement('pre')
       ent.xrefs.forEach((v,i) => {
-        pre.appendChild(document.createTextNode(sprintf("%4u %02x %08x %s\n", i, i, v, prettyxref(v, ent, xbin))))
+        if (typeof v === 'string') {
+          pre.appendChild(document.createTextNode(sprintf("%4u %02x %s\n", i, i, v)))
+        } else {
+          pre.appendChild(document.createTextNode(sprintf("%4u %02x %08x %s\n", i, i, v, prettyxref(v, ent, xbin))))
+        }
       })
       cont.appendChild(pre)
       break
