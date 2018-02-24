@@ -158,7 +158,7 @@ const instructionSpecsRTDL = parseDSL({
   0x3e: ' mkarray     rz                | z             | z:int             ',
   0x3f: ' getindex&   rz, rx            | z:~&*x        | x                 ',
   0x40: ' arrlength   rz, rx            | z:int         | x                 ',
-  0x41: ' delarray    rz, rx            |               | z,x:int           ',
+  0x41: ' delarray    rz                |               | z                 ',
 
   // TODO: I forget how this instruction works
 //0x59: ' getindex&   rz, rx, ry        | z             | x,y               ',
