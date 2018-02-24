@@ -52,7 +52,7 @@ export function renderView(cont, xbin, key) {
 
     case 'method':
       var instrs = disassemble(ent, xbin)
-      var pre = render_disassembly_plain(instrs)
+      var pre = render_disassembly(instrs)
       cont.appendChild(pre)
       break
 
