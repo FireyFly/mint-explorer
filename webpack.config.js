@@ -18,6 +18,7 @@ module.exports = {
     ],
   },
   plugins: [
+    /*
     new UglifyJSPlugin({
       sourceMap: true,
       uglifyOptions: {
@@ -26,6 +27,7 @@ module.exports = {
         warnings: true,
       },
     }),
+    */
   ],
   devtool: 'source-map',
 }
