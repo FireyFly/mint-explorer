@@ -15,7 +15,4 @@ be decompressed before being loaded into Mint Explorer.
 ![Screenshot](meta/screenshot.png "Demo of Mint Explorer viewing a simple Pong game")
 
 ## License
-Undecided as of yet, will probably go for MIT license.  If you have any
-interest in using any of this code, feel free to contact me and I'll most
-likely be happy to slap a license on it.
-
+ISC
