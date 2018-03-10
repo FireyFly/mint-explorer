@@ -83,7 +83,6 @@ const instructionSpecsRTDL = parseDSL({
 
   0x09: ' getstatic   rz, field:v       | z:~v          |                   ',
   0x0a: ' getderef    rz, rx            | z:~*x         | x                 ',
-//0x0e: ' getfield    rz, rx, field:y   | z:~&y         | x                 ',
 
   // TODO: figure out if int or uint here?
   0x0b: ' sizeof      rz, class:v       | z:int         |                   ',
@@ -94,39 +93,46 @@ const instructionSpecsRTDL = parseDSL({
 
   0x0e: ' addi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
   0x0f: ' subi        rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x10: ' muli??      rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x11: ' divi??      rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
-  0x12: ' modi??      rz, rx, ry        | z:~x          | x:u?int,y:u?int   ',
+  0x10: ' muls        rz, rx, ry        | z:~x          | x:int,y:int       ',
+  0x11: ' divs        rz, rx, ry        | z:~x          | x:int,y:int       ',
+  0x12: ' mods        rz, rx, ry        | z:~x          | x:int,y:int       ',
   0x13: ' inci        rz                | z:~z          | z:int             ',
-  0x14: ' negi?       rz, rx            | z:~x          | x:int             ',
+  0x14: ' deci        rz                | z:~z          | z:int             ',
+  0x15: ' negi        rz, rx            | z:~x          | x:int             ',
 
   0x16: ' addf        rz, rx, ry        | z:~x          | x:float,y:float   ',
   0x17: ' subf        rz, rx, ry        | z:~x          | x:float,y:float   ',
   0x18: ' mulf        rz, rx, ry        | z:~x          | x:float,y:float   ',
   0x19: ' divf        rz, rx, ry        | z:~x          | x:float,y:float   ',
+  0x1a: ' inci        rz                | z:~z          | z:float           ',
+  0x1b: ' deci        rz                | z:~z          | z:float           ',
 
   0x1c: ' negf        rz, rx            | z:~x          | x                 ',
 
   0x1d: ' lt int      rz, rx, ry        | z:bool        | x:int,y:int       ',
-  0x1e: ' ne? int     rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x1e: ' le int      rz, rx, ry        | z:bool        | x:int,y:int       ',
   0x1f: ' eq int      rz, rx, ry        | z:bool        | x:int,y:int       ',
-//0x2c: ' ?? int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  0x20: ' ne int      rz, rx, ry        | z:bool        | x:int,y:int       ',
+  
   0x21: ' lt float    rz, rx, ry        | z:bool        | x:float,y:float   ',
-//0x2e: ' ?? float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+  0x22: ' le float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+  0x23: ' eq float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+  0x24: ' ne float    rz, rx, ry        | z:bool        | x:float,y:float   ',
+  
+  0x25: ' cmp lt      rz, rx            | z:???         | z:???,x:???       ',
+  0x26: ' cmp le      rz, rx            | z:???         | z:???,x:???       ',
 
   0x27: ' eq bool     rz, rx, ry        | z:bool        | x:bool,y:bool     ',
-  0x28: ' ne? bool    rz, rx, ry        | z:bool        | x:bool,y:bool     ',
+  0x28: ' ne bool     rz, rx, ry        | z:bool        | x:bool,y:bool     ',
 
-  // 3b zz xx ff: found with arrays, passed <index> and <array length>
-  // TODO: int or uint? does this actually write to rz? no clue.
-//0x3b: ' capindex?   rz, rx            | z:int         | z:int,x:uint      ',
-
+  0x29: ' bitand      rz, rx, ry        | z:int         | x:int,y:int       ',
   0x2a: ' bitor       rz, rx, ry        | z:int         | x:int,y:int       ',
+  0x2b: ' bitxor      rz, rx, ry        | z:int         | x:int,y:int       ',
+  0x2c: ' bitnot      rz, rx, ry        | z:int         | x:int,y:int       ',
 
   0x2d: ' not         rz, rx            | z:bool        | x:bool            ',
-  // 2e: appears to be some kind of interaction with native code
-  // e.g. used for reading controller buttons in Scn.Step.Hero.ButtonMask
-//0x2e: ' lookup?     rz, rx, ry        | z:int         | x:int,y:int       ',
+  0x2e: ' sll         rz, rx, ry        | z:int         | x:int,y:int       ',
+  0x2f: ' slr         rz, rx, ry        | z:int         | x:int,y:int       ',
 
   0x30: ' jmp         reloffset:v       | PC            |                   ',
   0x31: ' jmp if      reloffset:v, rz   | PC            | z:bool            ',
@@ -135,44 +141,23 @@ const instructionSpecsRTDL = parseDSL({
   // decl: z local, x = (#args + retreg? + this?)
   0x33: ' decl        z, x              |               |                   ',
   0x34: ' ret                           |               |                   ',
-  0x35: ' ret         rx                |               | y                 ',
+  0x35: ' ret         r0                |               |                   ',
   0x36: ' call        method:v          | RES           | ARGS              ',
-//0x4a: ' call ???    method:v          | RES           | ARGS              ',
-//0x4b: ' call ext    method:v          | RES           | ARGS              ',
-  // 37: some kind of interaction with native, setting some value
-  // invoked with regs with values of 1, 30, 60, 180
-//0x37: ' ?? intreg   rz                |               | z:int             ',
-  // TODO: enforce z ~ x type constraint
-  0x38: ' copy?       rz, rx, ry        |               | z,x,y:int         ',
+  0x37: ' yield       rz                | ???           | z:???             ',
+
+  0x38: ' copy        rz, rx, ry        |               | z,x,y:int         ',
+  0x39: ' zero        rz, rx            |               | z,x:int           ',
 
   0x3a: ' new         rz, class:v       | z:~v          |                   ',
-//0x50: ' new&        rz, class:v       | z:~&v         |                   ',
-  // TODO: is 0x51 even useful? should I have one primitive and one object-type register per regno?
-  0x3c: ' del?        rz, class:v       |               |                   ',
+  0x3a: ' newz?       rz, class:v       | z:~v          |                   ',
+  0x3c: ' del         rz, class:v       |               |                   ',
 
-  // 0x53: related to `const ref`
-  // 53 ?? xx yy: access field yy of xx (object-type field)
-//0x53: ' getfield&   rz, rx, field:y   | z:~&y         | x                 ',
   0x3d: ' getfield&   rz, field:v       | z:~&v         | z                 ',
 
   0x3e: ' mkarray     rz                | z             | z:int             ',
   0x3f: ' getindex&   rz, rx            | z:~&*x        | x                 ',
   0x40: ' arrlength   rz, rx            | z:int         | x                 ',
-  0x41: ' delarray    rz                |               | z                 ',
-
-  // TODO: I forget how this instruction works
-//0x59: ' getindex&   rz, rx, ry        | z             | x,y               ',
-
-//0x5b: ' f2i         rz, rx            | z:int         | x:float           ',
-//0x5c: ' u2e?        rz, rx            | z             | x:uint            ',
-//0x5d: ' i2u?        rz, rx            | z:uint        | x:int             ',
-//0x5e: ' f2u         rz, rx            | z:uint        | x:float           ',
-//0x5f: ' i2f         rz, rx            | z:float       | x:int             ',
-//0x60: ' u2f         rz, rx            | z:float       | x:uint            ',
-
-  // References a class with unk1 $0001
-//0x61: ' <<61>>      rz, class:v       | z             |                   ',
-//0x63: ' <<63>>      rz, data:v        | z             |                   ',
+  0x41: ' delarray    rz                |               | z                 '
 })
 
 const instructionSpecsK3D = parseDSL({
