@@ -104,24 +104,21 @@ const instructionSpecsRTDL = parseDSL({
   0x17: ' subf        rz, rx, ry        | z:~x          | x:float,y:float   ',
   0x18: ' mulf        rz, rx, ry        | z:~x          | x:float,y:float   ',
   0x19: ' divf        rz, rx, ry        | z:~x          | x:float,y:float   ',
-  0x1a: ' inci        rz                | z:~z          | z:float           ',
-  0x1b: ' deci        rz                | z:~z          | z:float           ',
-
+  0x1a: ' incf        rz                | z:~z          | z:float           ',
+  0x1b: ' decf        rz                | z:~z          | z:float           ',
   0x1c: ' negf        rz, rx            | z:~x          | x                 ',
 
   0x1d: ' lt int      rz, rx, ry        | z:bool        | x:int,y:int       ',
   0x1e: ' le int      rz, rx, ry        | z:bool        | x:int,y:int       ',
   0x1f: ' eq int      rz, rx, ry        | z:bool        | x:int,y:int       ',
   0x20: ' ne int      rz, rx, ry        | z:bool        | x:int,y:int       ',
-  
+
   0x21: ' lt float    rz, rx, ry        | z:bool        | x:float,y:float   ',
   0x22: ' le float    rz, rx, ry        | z:bool        | x:float,y:float   ',
   0x23: ' eq float    rz, rx, ry        | z:bool        | x:float,y:float   ',
   0x24: ' ne float    rz, rx, ry        | z:bool        | x:float,y:float   ',
-  
   0x25: ' cmp lt      rz, rx            | z:???         | z:???,x:???       ',
   0x26: ' cmp le      rz, rx            | z:???         | z:???,x:???       ',
-
   0x27: ' eq bool     rz, rx, ry        | z:bool        | x:bool,y:bool     ',
   0x28: ' ne bool     rz, rx, ry        | z:bool        | x:bool,y:bool     ',
 
@@ -129,7 +126,6 @@ const instructionSpecsRTDL = parseDSL({
   0x2a: ' bitor       rz, rx, ry        | z:int         | x:int,y:int       ',
   0x2b: ' bitxor      rz, rx, ry        | z:int         | x:int,y:int       ',
   0x2c: ' bitnot      rz, rx, ry        | z:int         | x:int,y:int       ',
-
   0x2d: ' not         rz, rx            | z:bool        | x:bool            ',
   0x2e: ' sll         rz, rx, ry        | z:int         | x:int,y:int       ',
   0x2f: ' slr         rz, rx, ry        | z:int         | x:int,y:int       ',
@@ -145,11 +141,11 @@ const instructionSpecsRTDL = parseDSL({
   0x36: ' call        method:v          | RES           | ARGS              ',
   0x37: ' yield       rz                | ???           | z:???             ',
 
-  0x38: ' copy        rz, rx, ry        |               | z,x,y:int         ',
-  0x39: ' zero        rz, rx            |               | z,x:int           ',
+  0x38: ' mcopy       rz, rx, ry        |               | z,x,y:int         ',
+  0x39: ' mzero       rz, rx            |               | z,x:int           ',
 
   0x3a: ' new         rz, class:v       | z:~v          |                   ',
-  0x3a: ' newz?       rz, class:v       | z:~v          |                   ',
+  0x3b: ' newz?       rz, class:v       | z:~v          |                   ',
   0x3c: ' del         rz, class:v       |               |                   ',
 
   0x3d: ' getfield&   rz, field:v       | z:~&v         | z                 ',
