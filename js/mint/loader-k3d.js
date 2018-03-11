@@ -15,7 +15,8 @@ export function readMintV2(bp) {
 
   // Read rest of header
   const unk2 = bp.read('u16')
-  assert(unk2 == 1, `expected unk2 == 1, found ${unk2}`)
+  // TODO: read unk2 & unk3 as u8[4]--compare across all known games
+//assert(unk2 == 1, `expected unk2 == 1, found ${unk2}`)
 
   var hd = bp.read([ { unk3:          'u16' }, // (game-dependent)
                      { packages_size: 'u32' },
@@ -117,7 +118,7 @@ function read_file(bp, base, raw) {
       ptrs      = [],
       classes   = []
   for (var i = 0; i < classes_n; i++) ptrs[i] = bp.read('u32')
-  for (var i = 0; i < classes_n; i++) classes[i] = read_class(bp, base_, ptrs[i])
+  for (var i = 0; i < classes_n; i++) classes[i] = read_class(bp, base_, ptrs[i], hd.name_ptr)
 
   var children = []
   if (xrefs.length > 0) {
@@ -136,7 +137,7 @@ function read_file(bp, base, raw) {
            children:    children }
 }
 
-function read_class(bp, base, offset) {
+function read_class(bp, base, offset, offset_end) {
   bp.seek(base + offset)
   var class_ = bp.read([ { name_ptr:    'u32' },
                          { hash:        'u32' },
@@ -158,7 +159,9 @@ function read_class(bp, base, offset) {
   bp.seek(base + class_.ptr_methods)
   var n = bp.read('u32'), ptrs = []
   for (var i = 0; i < n; i++) ptrs[i] = bp.read('u32')
-  for (var i = 0; i < n; i++) methods[i] = read_method(bp, base, ptrs[i])
+  for (var i = 0; i < n; i++) {
+    methods[i] = read_method(bp, base, ptrs[i], i + 1 < n ? ptrs[i + 1] : offset_end)
+  }
 
   // Read constants
   bp.seek(base + class_.ptr_consts)
@@ -200,7 +203,7 @@ function read_field(bp, base, offset) {
            flags:    field.flags }
 }
 
-function read_method(bp, base, offset) {
+function read_method(bp, base, offset, offset_end) {
   bp.seek(base + offset)
   var method = bp.read([ { typesig_ptr: 'u32' },
                          { hash:        'u32' },
@@ -209,11 +212,11 @@ function read_method(bp, base, offset) {
 
   var bytecode = []
   bp.seek(base + method.code_ptr)
-  for (var i = 0; i < 0x10000; i++) { // FIXME: arbitrary max codelength
+  for (var i = 0; i < (offset_end - method.code_ptr)/4; i++) {
     var chunk = [bp.read('u8'), bp.read('u8'), bp.read('u8'), bp.read('u8')]
     Array.prototype.push.apply(bytecode, chunk)
     // check for `ret`
-    if (chunk[0] == 0x47 || chunk[0] == 0x48) break
+//  if (chunk[0] == 0x47 || chunk[0] == 0x48) break
   }
 
   return { type:     'method',
@@ -236,53 +239,3 @@ function read_const(bp, base, offset) {
            value:  const_.value }
 }
 
-
-/*
-//-------------------------------------------------------------------
-function postprocessXbin(root, xbin) {
-  root.packages.forEach(pack => {
-    pack.subpackages = pack.subpackages.map(i => root.packages[i])
-    pack.subfiles = pack.subfiles.map(i => root.files[i])
-    pack.children = pack.subpackages.concat(pack.subfiles)
-  })
-
-
-  function setParent(parent, obj) {
-    obj.parent = parent
-    if (obj.children != null) {
-      obj.children.forEach(setParent.bind(null, obj))
-    }
-  }
-  setParent(null, root)
-
-  var byHash  = {},
-      byKey = {},
-      key = 0
-  function putHash(obj) {
-    if (obj.hash != null) byHash[obj.hash] = obj
-    obj.key = key++
-    byKey[obj.key] = obj
-    if (obj.children != null) {
-      obj.children.forEach(putHash)
-    }
-  }
-  putHash(root)
-
-  return { tree:            root,
-           by_hash:         byHash,
-           by_key:          byKey }
-}
-
-export function parseXbin(buf) {
-  try {
-    var bp = new BinaryParser(buf)
-    bp.flipped = true
-
-    var root = read_xbin(bp)
-    return postprocessXbin(root)
-  } catch (err) {
-    console.warn(err.stack)
-    throw err
-  }
-}
-*/
