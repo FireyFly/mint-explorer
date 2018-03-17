@@ -5,7 +5,8 @@
     "browser": true,
   },
   "rules": {
-    "react/jsx-filename-extension": [1, { "extensions": [".js", ".jsx"] }],
+    "react/jsx-filename-extension": ["warn", { "extensions": [".js", ".jsx"] }],
+    "object-curly-newline": ["error", { "consistent": true }],
     "no-bitwise": 0,
   },
 }
