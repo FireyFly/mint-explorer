@@ -2,6 +2,9 @@ import { tick, tock, sprintf, asyncRead } from './utils.js'
 import { parseXbin } from './mint/loader.js'
 import { renderView } from './components/MintView.js'
 import { renderTree, expandInit } from './components/Tree.js'
+import './styles/style.css';
+import './styles/expand-tree.css';
+import './styles/theme.css';
 
 let xbin = null
 
@@ -39,7 +42,25 @@ function loadFiles(files) {
     })
 }
 
-var el = document.getElementById('file-selector')
-el.addEventListener('change', () => loadFiles(el.files), false)
+const treeContEl = document.createElement('div');
+treeContEl.id = 'tree-cont';
 
-if (el.files.length > 0) loadFiles(el.files)
+const browseEl = document.createElement('input');
+browseEl.type = 'file';
+browseEl.multiple = 'multiple';
+browseEl.id = 'file-selector';
+
+const treeEl = document.createElement('div');
+treeEl.id = 'tree';
+
+treeContEl.appendChild(browseEl);
+treeContEl.appendChild(treeEl);
+
+const viewContEl = document.createElement('div');
+viewContEl.id = 'view-cont';
+viewContEl.appendChild(document.createTextNode('(Select a file)'));
+
+document.body.appendChild(treeContEl);
+document.body.appendChild(viewContEl);
+
+browseEl.addEventListener('change', () => loadFiles(browseEl.files), false);

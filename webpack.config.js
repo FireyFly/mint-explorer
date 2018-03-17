@@ -1,8 +1,9 @@
-const webpack = require('webpack')
-const path = require('path')
+const path = require('path');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: './js/index.js',
+  entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].bundle.js',
@@ -13,20 +14,20 @@ module.exports = {
         test: /\.js$/,
         exclude: /node_modules/,
         use: 'babel-loader',
-      }
+      },
+      {
+        test: /\.css$/,
+        use: ExtractTextPlugin.extract({
+          use: 'css-loader',
+        }),
+      },
     ],
   },
   plugins: [
-    /*
-    new UglifyJSPlugin({
-      sourceMap: true,
-      uglifyOptions: {
-        ie8: false,
-        ecma: 8,
-        warnings: true,
-      },
+    new ExtractTextPlugin('styles.css'),
+    new HtmlWebpackPlugin({
+      title: 'Mint Explorer',
     }),
-    */
   ],
   devtool: 'source-map',
-}
+};
