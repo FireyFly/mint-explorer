@@ -5,8 +5,15 @@
     "browser": true,
   },
   "rules": {
-    "react/jsx-filename-extension": ["warn", { "extensions": [".js", ".jsx"] }],
+    // Newline placement
     "object-curly-newline": ["error", { "consistent": true }],
+    "function-paren-newline": ["error", "consistent"],
+    // Allowed operators
+    "no-plusplus": ["warn", { "allowForLoopAfterthoughts": true }],
     "no-bitwise": 0,
+    // React
+    "react/jsx-filename-extension": ["warn", { "extensions": [".js", ".jsx"] }],
   },
 }
+
+// vim: set ft=javascript:
