@@ -7,7 +7,7 @@ html, body {
   background-color: #000 !important;
 }
 
-#tree-cont {
+.tree-cont {
   background: #222;
 }
 
@@ -18,11 +18,11 @@ html, body {
 .node.method::before  { background: #369; content: "m" }
 .node.const::before   { background: #A43; content: "c" }
 
-#view-cont .breadcrumb > li:not(:first-child)::before {
+.view-cont .breadcrumb > li:not(:first-child)::before {
   color: #999;
 }
 
-#view-cont .metadata dd {
+.view-cont .metadata dd {
   color: #999;
 }
 
