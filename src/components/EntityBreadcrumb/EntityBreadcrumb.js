@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Breadcrumb from '../../../components/Breadcrumb';
+import Breadcrumb from '../Breadcrumb';
 
 function extractEntityPath(entity) {
   const path = [];
@@ -17,8 +17,8 @@ const renderBreadcrumbItem = ({ pretty, name, type }) => (
   <span className={`node ${type}`}>{ pretty || name || '(none)' }</span>
 );
 
-/** Renders a breadcrumb for a Mint entity, as located in the PackageTree. */
-function PackageTreeBreadcrumb({
+/** Renders a breadcrumb for a Mint entity, as located in the EntityTree. */
+function EntityBreadcrumb({
   entity,
 }) {
   return (
@@ -29,8 +29,8 @@ function PackageTreeBreadcrumb({
   );
 }
 
-PackageTreeBreadcrumb.propTypes = {
+EntityBreadcrumb.propTypes = {
   entity: PropTypes.object.isRequired,
 };
 
-export default PackageTreeBreadcrumb;
+export default EntityBreadcrumb;

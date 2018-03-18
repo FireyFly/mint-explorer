@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
-import PackageTree from './components/PackageTree';
-import PackageTreeBreadcrumb from './components/PackageTreeBreadcrumb';
-//import MintView from '../components/MintView';
+import EntityBreadcrumb from '../components/EntityBreadcrumb';
+import EntityMetadata from '../components/EntityMetadata';
+import EntityTree from '../components/EntityTree';
+import EntityView from '../components/EntityView';
 import { tick, tock, asyncRead } from '../utils';
 import { parseXbin } from '../mint/loader';
 
@@ -39,21 +40,18 @@ class App extends Component {
     const entity = xbin && xbin.by_key[entityKey];
     return (
       <div>
-        <div className="l-sidebar-cont">
+        <div className="tree-cont">
           {/* Browse… */}
           <input type="file" onChange={this.handleFileChange} />
           {/* Tree */}
-          { xbin && <PackageTree xbin={xbin} onClick={this.handleTreeClick} /> }
+          { xbin && <EntityTree xbin={xbin} onClick={this.handleTreeClick} /> }
         </div>
         {/* Main view */}
-        <div className="l-view-cont">
-          { xbin && <PackageTreeBreadcrumb entity={entity} /> }
-          {/*
-          { xbin
-              ? <MintView xbin={xbin} entity={entity} />
-              : <p>(Select a file)</p>
-          }
-          */}
+        <div className="view-cont">
+          { xbin && <EntityBreadcrumb entity={entity} /> }
+          { xbin && <EntityMetadata entity={entity} /> }
+          { xbin && <EntityView entity={entity} /> }
+          { !xbin && <p>(Select a file)</p> }
         </div>
       </div>
     );

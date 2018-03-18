@@ -1,13 +1,13 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import Tree from '../../../components/Tree';
+import Tree from '../Tree';
 
 /**
  * Renders a package/file/method/... tree for a given Mint archive file.
  * Clicking on a tree item triggers the provided `onClick`, which is passed
  * the entity in question.
  */
-function PackageTree({
+function EntityTree({
   xbin,
   onClick,
 }) {
@@ -34,9 +34,9 @@ function PackageTree({
   );
 }
 
-PackageTree.propTypes = {
+EntityTree.propTypes = {
   xbin: PropTypes.object.isRequired,
   onClick: PropTypes.func.isRequired,
 };
 
-export default PackageTree;
+export default EntityTree;
