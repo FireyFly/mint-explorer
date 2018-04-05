@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import EntityStatisticsView from '../EntityStatisticsView';
 import HexdView from '../HexdView';
 import MintDisassemblyView from '../MintDisassemblyView';
+import XrefsView from '../XrefsView';
 
 function EntityView({
   entity,
@@ -20,6 +21,9 @@ function EntityView({
 
     case 'sdata':
       return <HexdView data={entity.sdata} />;
+
+    case 'xrefs':
+      return <XrefsView entity={entity} xbin={xbin} />;
 
     default:
       return <pre>EntityView: unimplemented: {type}</pre>;
