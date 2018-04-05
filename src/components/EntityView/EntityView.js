@@ -10,18 +10,18 @@ import {
 } from '../../mint/disassembler';
 */
 
-function MintView({
+function EntityView({
   entity,
 }) {
   const { type } = entity;
   switch (type) {
     default:
-      return <pre>MintView: unimplemented: {type}</pre>;
+      return <pre>EntityView: unimplemented: {type}</pre>;
   }
 }
 
-MintView.propTypes = {
+EntityView.propTypes = {
   entity: PropTypes.object.isRequired,
 };
 
-export default MintView;
+export default EntityView;
