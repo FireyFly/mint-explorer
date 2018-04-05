@@ -262,7 +262,7 @@ const instructionSpecsK3D = parseDSL({
   0x63: ' <<63>>      rz, data:v        | z             |                   ',
 })
 
-const instructionSpecs = {
+export const instructionSpecs = {
   RTDL: instructionSpecsRTDL,
   K3D: instructionSpecsK3D,
 }
