@@ -1,14 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
+import EntityStatisticsView from '../EntityStatisticsView';
 import HexdView from '../HexdView';
 import MintDisassemblyView from '../MintDisassemblyView';
-/*
-import {
-  prettyxref,
-  showPackageInfo,
-} from '../../mint/disassembler';
-*/
 
 function EntityView({
   entity,
@@ -16,6 +11,10 @@ function EntityView({
 }) {
   const { type } = entity;
   switch (type) {
+    case 'file':
+    case 'package':
+      return <EntityStatisticsView entity={entity} xbin={xbin} />;
+
     case 'method':
       return <MintDisassemblyView entity={entity} xbin={xbin} />;
 
