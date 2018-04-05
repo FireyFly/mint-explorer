@@ -11,6 +11,7 @@
     // Allowed operators
     "no-plusplus": ["warn", { "allowForLoopAfterthoughts": true }],
     "no-bitwise": 0,
+    "yoda": 0,
     // React
     "react/jsx-filename-extension": ["warn", { "extensions": [".js", ".jsx"] }],
   },
