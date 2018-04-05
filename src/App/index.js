@@ -50,7 +50,7 @@ class App extends Component {
         <div className="view-cont">
           { xbin && <EntityBreadcrumb entity={entity} /> }
           { xbin && <EntityMetadata entity={entity} /> }
-          { xbin && <EntityView entity={entity} /> }
+          { xbin && <EntityView entity={entity} xbin={xbin} /> }
           { !xbin && <p>(Select a file)</p> }
         </div>
       </div>

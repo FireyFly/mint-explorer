@@ -1,22 +1,23 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+
 import HexdView from '../HexdView';
+import MintDisassemblyView from '../MintDisassemblyView';
 /*
 import {
-  disassemble,
   prettyxref,
-  render_disassembly, render_disassembly_plain,
   showPackageInfo,
 } from '../../mint/disassembler';
 */
 
 function EntityView({
   entity,
+  xbin,
 }) {
   const { type } = entity;
   switch (type) {
     case 'method':
-      return <HexdView data={entity.bytecode} />;
+      return <MintDisassemblyView entity={entity} xbin={xbin} />;
 
     case 'sdata':
       return <HexdView data={entity.sdata} />;
@@ -28,6 +29,7 @@ function EntityView({
 
 EntityView.propTypes = {
   entity: PropTypes.object.isRequired,
+  xbin: PropTypes.object.isRequired,
 };
 
 export default EntityView;
