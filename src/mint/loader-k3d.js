@@ -121,6 +121,11 @@ function read_file(bp, base, raw) {
   for (var i = 0; i < classes_n; i++) classes[i] = read_class(bp, base_, ptrs[i], hd.name_ptr)
 
   var children = []
+  if (sdata.byteLength > 0) {
+    children.push({ type:   'sdata',
+                    pretty: '(sdata)',
+                    sdata:   sdata })
+  }
   if (xrefs.length > 0) {
     children.push({ type:   'xrefs',
                     pretty: '(xrefs)',

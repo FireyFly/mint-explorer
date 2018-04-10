@@ -8,7 +8,7 @@ html, body {
   background-color: #000 !important;
 }
 
-#tree-cont {
+.tree-cont {
   position: fixed;
   bottom: 0;
   float: left;
@@ -16,27 +16,27 @@ html, body {
   height: 100%;
   overflow: auto;
 }
-#tree-cont li {
+.tree-cont li {
   white-space: nowrap;
 }
-#tree-cont .node {
+.tree-cont .node {
   cursor: default;
 }
 
 
-#view-cont {
+.view-cont {
   padding: 1em;
   margin-left: 20em;
 }
 
-#view-cont .breadcrumb {
+.view-cont .breadcrumb {
   list-style-type: none;
   padding-left: 0;
 }
-#view-cont .breadcrumb > li {
+.view-cont .breadcrumb > li {
   display: inline-block;
 }
-#view-cont .breadcrumb > li:not(:first-child)::before {
+.view-cont .breadcrumb > li:not(:first-child)::before {
   display: inline-block;
   padding-left: 0.4em;
   padding-right: 0.3em;
@@ -44,12 +44,12 @@ html, body {
   cursor: default;
 }
 
-#view-cont .metadata dt, dd {
+.view-cont .metadata dt, dd {
   display: inline-block;
 }
-#view-cont .metadata dt {
+.view-cont .metadata dt {
 }
-#view-cont .metadata dd {
+.view-cont .metadata dd {
   margin-left: 0.2em;
   margin-right: 1em;
 }
